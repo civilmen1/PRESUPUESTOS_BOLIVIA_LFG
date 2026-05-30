@@ -22,6 +22,16 @@ def render(proyecto):
 
     # ---------------------------------------------------------------- importar
     with tab_import:
+        from exporters.export_template import plantilla_bytes
+        st.download_button(
+            "⬇️ Descargar plantilla Excel (formato a cargar)",
+            data=plantilla_bytes(),
+            file_name="plantilla_tabla_cantidades.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            help="Plantilla con las columnas correctas. Las filas con texto pero "
+                 "sin unidad ni cantidad se detectan como títulos de módulo.")
+        st.caption("Columnas: N° · CODIGO ESPECIFICACION · ITEM (descripción) · "
+                   "UND · CANTIDAD · OBSERVACIONES")
         archivo = st.file_uploader("CSV / XLSX / XLS", type=["csv", "xlsx", "xls"])
         if archivo:
             ruta = settings.UPLOAD_DIR / archivo.name
