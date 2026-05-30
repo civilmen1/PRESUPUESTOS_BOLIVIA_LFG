@@ -1,0 +1,7 @@
+modulo,numero,codigo,descripcion,unidad,cantidad,observaciones
+Obras preliminares,1,OP-01,Excavación manual para cimientos,m3,45,Terreno semiduro
+Estructura,2,ES-01,Hormigón armado para zapatas H21,m3,18.5,Incluye encofrado
+Albañilería,3,AL-01,Muro de mampostería de ladrillo gambote,m2,220,Espesor 18cm
+Instalaciones,4,IN-01,Provisión y tendido de tubería PVC 4'' desague,ml,85,
+Acabados,5,AC-01,Pintura látex en muros interiores,m2,340,Dos manos
+Acabados,6,AC-02,Revestimiento cerámico de pisos,m2,160,Cerámica 30x30

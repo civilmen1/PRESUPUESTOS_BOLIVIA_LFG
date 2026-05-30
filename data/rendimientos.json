@@ -1,0 +1,82 @@
+{
+  "_descripcion": "Plantillas de APU por tipo de ítem (Bolivia). Cada plantilla define recursos con su cantidad por unidad de ítem (rendimiento). Editable y ampliable.",
+  "_moneda": "BOB",
+  "plantillas": [
+    {
+      "nombre": "Hormigón armado",
+      "keywords": ["hormigon armado", "hormigón armado", "h°a°", "losa", "viga", "columna", "zapata", "concreto armado"],
+      "unidad": "m3",
+      "recursos": [
+        {"tipo": "material", "descripcion": "Cemento Portland", "unidad": "bolsa", "cantidad_apu": 7.0, "categoria": "cemento"},
+        {"tipo": "material", "descripcion": "Arena", "unidad": "m3", "cantidad_apu": 0.5, "categoria": "aridos"},
+        {"tipo": "material", "descripcion": "Grava", "unidad": "m3", "cantidad_apu": 0.8, "categoria": "aridos"},
+        {"tipo": "material", "descripcion": "Acero corrugado", "unidad": "kg", "cantidad_apu": 80.0, "categoria": "acero"},
+        {"tipo": "mano_obra", "descripcion": "Albañil", "unidad": "jornal", "cantidad_apu": 1.2, "categoria": "albañil"},
+        {"tipo": "mano_obra", "descripcion": "Ayudante", "unidad": "jornal", "cantidad_apu": 2.0, "categoria": "ayudante"},
+        {"tipo": "equipo", "descripcion": "Mezcladora de hormigón", "unidad": "hora", "cantidad_apu": 2.0, "categoria": "mezcladora"},
+        {"tipo": "equipo", "descripcion": "Vibradora", "unidad": "hora", "cantidad_apu": 1.5, "categoria": "vibradora"}
+      ]
+    },
+    {
+      "nombre": "Mampostería de ladrillo",
+      "keywords": ["mamposteria", "mampostería", "muro de ladrillo", "tabique", "pared de ladrillo", "ladrillo"],
+      "unidad": "m2",
+      "recursos": [
+        {"tipo": "material", "descripcion": "Ladrillo", "unidad": "pieza", "cantidad_apu": 38.0, "categoria": "ceramicos"},
+        {"tipo": "material", "descripcion": "Cemento Portland", "unidad": "bolsa", "cantidad_apu": 0.3, "categoria": "cemento"},
+        {"tipo": "material", "descripcion": "Arena", "unidad": "m3", "cantidad_apu": 0.03, "categoria": "aridos"},
+        {"tipo": "mano_obra", "descripcion": "Albañil", "unidad": "jornal", "cantidad_apu": 0.6, "categoria": "albañil"},
+        {"tipo": "mano_obra", "descripcion": "Ayudante", "unidad": "jornal", "cantidad_apu": 0.6, "categoria": "ayudante"}
+      ]
+    },
+    {
+      "nombre": "Excavación manual",
+      "keywords": ["excavacion", "excavación", "movimiento de tierra", "zanja", "corte"],
+      "unidad": "m3",
+      "recursos": [
+        {"tipo": "mano_obra", "descripcion": "Ayudante", "unidad": "jornal", "cantidad_apu": 0.8, "categoria": "ayudante"},
+        {"tipo": "equipo", "descripcion": "Herramienta menor", "unidad": "porcentaje", "cantidad_apu": 0.05, "categoria": "herramienta_menor"}
+      ]
+    },
+    {
+      "nombre": "Instalación de tubería PVC",
+      "keywords": ["tuberia", "tubería", "pvc", "agua potable", "alcantarillado", "desague", "desagüe"],
+      "unidad": "ml",
+      "recursos": [
+        {"tipo": "material", "descripcion": "Tubería PVC", "unidad": "ml", "cantidad_apu": 1.05, "categoria": "tuberias"},
+        {"tipo": "material", "descripcion": "Accesorios y pegamento PVC", "unidad": "glb", "cantidad_apu": 0.1, "categoria": "tuberias"},
+        {"tipo": "mano_obra", "descripcion": "Plomero", "unidad": "jornal", "cantidad_apu": 0.1, "categoria": "plomero"},
+        {"tipo": "mano_obra", "descripcion": "Ayudante", "unidad": "jornal", "cantidad_apu": 0.1, "categoria": "ayudante"}
+      ]
+    },
+    {
+      "nombre": "Pintura latex",
+      "keywords": ["pintura", "latex", "látex", "pintado"],
+      "unidad": "m2",
+      "recursos": [
+        {"tipo": "material", "descripcion": "Pintura látex", "unidad": "lt", "cantidad_apu": 0.25, "categoria": "acabados"},
+        {"tipo": "mano_obra", "descripcion": "Pintor", "unidad": "jornal", "cantidad_apu": 0.08, "categoria": "pintor"}
+      ]
+    },
+    {
+      "nombre": "Revestimiento cerámico",
+      "keywords": ["ceramica", "cerámica", "piso ceramico", "azulejo", "porcelanato", "revestimiento"],
+      "unidad": "m2",
+      "recursos": [
+        {"tipo": "material", "descripcion": "Cerámica", "unidad": "m2", "cantidad_apu": 1.05, "categoria": "acabados"},
+        {"tipo": "material", "descripcion": "Pegamento cerámico", "unidad": "kg", "cantidad_apu": 5.0, "categoria": "acabados"},
+        {"tipo": "mano_obra", "descripcion": "Albañil", "unidad": "jornal", "cantidad_apu": 0.25, "categoria": "albañil"},
+        {"tipo": "mano_obra", "descripcion": "Ayudante", "unidad": "jornal", "cantidad_apu": 0.2, "categoria": "ayudante"}
+      ]
+    }
+  ],
+  "plantilla_generica": {
+    "nombre": "Genérica (sin plantilla específica)",
+    "recursos": [
+      {"tipo": "material", "descripcion": "Material principal (a definir)", "unidad": "glb", "cantidad_apu": 1.0, "categoria": "otros"},
+      {"tipo": "mano_obra", "descripcion": "Albañil", "unidad": "jornal", "cantidad_apu": 0.2, "categoria": "albañil"},
+      {"tipo": "mano_obra", "descripcion": "Ayudante", "unidad": "jornal", "cantidad_apu": 0.2, "categoria": "ayudante"},
+      {"tipo": "equipo", "descripcion": "Herramienta menor", "unidad": "porcentaje", "cantidad_apu": 0.05, "categoria": "herramienta_menor"}
+    ]
+  }
+}

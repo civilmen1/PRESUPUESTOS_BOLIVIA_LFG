@@ -1,0 +1,22 @@
+# --- Núcleo / UI ---
+streamlit>=1.30
+pandas>=2.0
+python-dotenv>=1.0
+
+# --- Lectura de tablas Excel ---
+openpyxl>=3.1
+xlrd>=2.0            # soporte .xls heredado
+
+# --- Lectura de documentos técnicos ---
+pypdf>=4.0
+python-docx>=1.1
+
+# --- Scraping web (Nivel 2) ---
+requests>=2.31
+beautifulsoup4>=4.12
+
+# --- Exportación PDF ---
+reportlab>=4.0
+
+# --- Pruebas ---
+pytest>=8.0

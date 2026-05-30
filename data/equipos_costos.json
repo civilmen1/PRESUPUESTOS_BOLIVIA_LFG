@@ -1,0 +1,12 @@
+{
+  "_descripcion": "Costos referenciales de equipos y herramientas en Bolivia (BOB/hora salvo indicación). Editable.",
+  "_moneda": "BOB",
+  "mezcladora": {"descripcion": "Mezcladora de hormigón", "precio": 35.0, "unidad": "hora"},
+  "vibradora": {"descripcion": "Vibradora de inmersión", "precio": 25.0, "unidad": "hora"},
+  "retroexcavadora": {"descripcion": "Retroexcavadora", "precio": 350.0, "unidad": "hora"},
+  "volqueta": {"descripcion": "Volqueta / camión", "precio": 250.0, "unidad": "hora"},
+  "compactadora": {"descripcion": "Compactadora / plancha", "precio": 40.0, "unidad": "hora"},
+  "herramienta_menor": {"descripcion": "Herramienta menor (% de mano de obra)", "precio": 0.05, "unidad": "porcentaje"},
+  "amoladora": {"descripcion": "Amoladora / cortadora", "precio": 15.0, "unidad": "hora"},
+  "soldadora": {"descripcion": "Equipo de soldadura", "precio": 30.0, "unidad": "hora"}
+}

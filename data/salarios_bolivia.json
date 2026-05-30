@@ -1,0 +1,14 @@
+{
+  "_descripcion": "Salarios referenciales de mano de obra en Bolivia (BOB por jornal de 8h). Valores referenciales editables.",
+  "_moneda": "BOB",
+  "_unidad": "jornal",
+  "maestro_mayor": {"descripcion": "Maestro mayor / albañil especializado", "precio": 180.0, "unidad": "jornal"},
+  "albañil": {"descripcion": "Albañil", "precio": 150.0, "unidad": "jornal"},
+  "ayudante": {"descripcion": "Ayudante / peón", "precio": 110.0, "unidad": "jornal"},
+  "fierrista": {"descripcion": "Armador / fierrista", "precio": 160.0, "unidad": "jornal"},
+  "encofrador": {"descripcion": "Carpintero encofrador", "precio": 160.0, "unidad": "jornal"},
+  "plomero": {"descripcion": "Plomero / gasfitero", "precio": 165.0, "unidad": "jornal"},
+  "electricista": {"descripcion": "Electricista", "precio": 170.0, "unidad": "jornal"},
+  "pintor": {"descripcion": "Pintor", "precio": 150.0, "unidad": "jornal"},
+  "operador_equipo": {"descripcion": "Operador de equipo pesado", "precio": 200.0, "unidad": "jornal"}
+}
