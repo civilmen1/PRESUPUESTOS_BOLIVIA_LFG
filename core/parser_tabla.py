@@ -2,6 +2,8 @@
 
 Detecta columnas de forma flexible (módulo, número, descripción, unidad,
 cantidad, código, observaciones) y devuelve una lista de objetos Item.
+Detecta además filas de TÍTULO DE MÓDULO (sin unidad ni cantidad), típicas de
+las tablas de cantidades bolivianas, y las usa para agrupar los ítems.
 """
 from __future__ import annotations
 
@@ -16,15 +18,22 @@ from models.item import Item
 
 logger = get_logger(__name__)
 
-# Sinónimos de columnas -> campo canónico
+# Sinónimos de columnas -> campo canónico.
+# OJO: "item"/"ítem" se tratan como DESCRIPCIÓN (uso común en tablas bolivianas),
+# mientras que "n°"/"nro" son el NÚMERO de ítem.
 _COLUMN_MAP = {
-    "modulo": ["modulo", "módulo", "module", "capitulo", "capítulo", "grupo"],
-    "numero": ["numero", "número", "nro", "n°", "item_nro", "no", "num", "ítem", "item"],
-    "codigo": ["codigo", "código", "code", "cod"],
-    "descripcion": ["descripcion", "descripción", "description", "detalle", "concepto", "actividad"],
-    "unidad": ["unidad", "und", "unit", "u", "medida", "um"],
-    "cantidad": ["cantidad", "cant", "qty", "quantity", "volumen", "vol"],
-    "observaciones": ["observaciones", "obs", "observacion", "notas", "comentarios"],
+    "modulo": ["modulo", "módulo", "module", "capitulo", "capítulo", "grupo",
+               "rubro", "seccion", "sección"],
+    "numero": ["numero", "número", "nro", "n°", "no", "num", "item_nro", "orden"],
+    "codigo": ["codigo", "código", "code", "cod", "codigo especificacion",
+               "codigo de especificacion", "cod especificacion",
+               "especificacion", "especificación"],
+    "descripcion": ["descripcion", "descripción", "description", "detalle",
+                    "concepto", "actividad", "item", "ítem", "designacion",
+                    "designación", "descripcion del item", "obra", "tarea"],
+    "unidad": ["unidad", "und", "unit", "u", "medida", "um", "und."],
+    "cantidad": ["cantidad", "cant", "qty", "quantity", "volumen", "vol",
+                 "cant.", "metrado"],
 }
 
 
@@ -33,20 +42,34 @@ def _normaliza_col(nombre: str) -> str:
 
 
 def _mapear_columnas(columnas: List[str]) -> dict:
-    """Mapea columnas reales del archivo a campos canónicos."""
+    """Mapea columnas reales del archivo a campos canónicos.
+
+    Dos pasadas: primero coincidencias exactas (sin reusar columnas), luego
+    parciales (solo con sinónimos de 3+ caracteres) para evitar falsos positivos.
+    """
     mapeo: dict[str, str] = {}
+    claimed: set[str] = set()
     normalizadas = {c: _normaliza_col(c) for c in columnas}
+
     for campo, sinonimos in _COLUMN_MAP.items():
         for original, norm in normalizadas.items():
-            if norm in sinonimos or any(norm == s for s in sinonimos):
+            if original in claimed:
+                continue
+            if norm in sinonimos:
                 mapeo[campo] = original
+                claimed.add(original)
                 break
-        if campo not in mapeo:
-            # coincidencia parcial
-            for original, norm in normalizadas.items():
-                if any(s in norm for s in sinonimos):
-                    mapeo[campo] = original
-                    break
+
+    for campo, sinonimos in _COLUMN_MAP.items():
+        if campo in mapeo:
+            continue
+        for original, norm in normalizadas.items():
+            if original in claimed:
+                continue
+            if any(s in norm for s in sinonimos if len(s) >= 3):
+                mapeo[campo] = original
+                claimed.add(original)
+                break
     return mapeo
 
 
@@ -73,7 +96,12 @@ def parsear_items(ruta: str | Path, proyecto_id: int | None = None) -> List[Item
 
 
 def dataframe_a_items(df: pd.DataFrame, proyecto_id: int | None = None) -> List[Item]:
-    """Convierte un DataFrame en lista de Item, detectando columnas."""
+    """Convierte un DataFrame en lista de Item, detectando columnas y módulos.
+
+    Una fila se considera **título de módulo** cuando tiene descripción pero
+    NO tiene número, ni unidad, ni cantidad. Esos títulos agrupan a los ítems
+    que vienen debajo (campo auxiliar ``_modulo_nombre``).
+    """
     if df is None or df.empty:
         return []
     df = df.dropna(how="all")
@@ -82,30 +110,49 @@ def dataframe_a_items(df: pd.DataFrame, proyecto_id: int | None = None) -> List[
 
     if "descripcion" not in mapeo:
         raise ValueError(
-            "No se encontró columna de descripción. Columnas: %s" % list(df.columns)
+            "No se encontró columna de descripción. Columnas detectadas: %s. "
+            "Usa la plantilla descargable o renombra la columna de descripción "
+            "a 'ITEM' o 'DESCRIPCION'." % list(df.columns)
         )
 
     items: List[Item] = []
+    modulo_actual = ""
     for _, fila in df.iterrows():
-        desc = str(fila.get(mapeo["descripcion"], "")).strip()
-        if not desc or desc.lower() == "nan":
+        desc = _to_str(fila.get(mapeo["descripcion"]))
+        if not desc:
             continue
+
+        numero = _to_str(fila.get(mapeo["numero"])) if "numero" in mapeo else ""
+        unidad = _to_str(fila.get(mapeo["unidad"])) if "unidad" in mapeo else ""
         cantidad = _to_float(fila.get(mapeo["cantidad"])) if "cantidad" in mapeo else 0.0
+        modulo_col = _to_str(fila.get(mapeo["modulo"])) if "modulo" in mapeo else ""
+
+        # Si hay columna de módulo explícita, se usa directamente
+        if modulo_col:
+            modulo_actual = modulo_col
+
+        # Fila de TÍTULO DE MÓDULO: tiene texto pero sin número/unidad/cantidad
+        es_titulo_modulo = (not modulo_col and not numero and not unidad
+                            and cantidad == 0.0)
+        if es_titulo_modulo:
+            modulo_actual = desc
+            logger.info("Módulo detectado: %s", desc)
+            continue
+
         item = Item(
             proyecto_id=proyecto_id,
-            numero=_to_str(fila.get(mapeo["numero"])) if "numero" in mapeo else "",
+            numero=numero,
             codigo=_to_str(fila.get(mapeo["codigo"])) if "codigo" in mapeo else "",
             descripcion=desc,
-            unidad=_to_str(fila.get(mapeo["unidad"])) if "unidad" in mapeo else "",
+            unidad=unidad,
             cantidad=cantidad,
             observaciones=_to_str(fila.get(mapeo["observaciones"])) if "observaciones" in mapeo else "",
             palabras_clave=", ".join(extraer_keywords(desc, max_kw=8)),
         )
-        item._modulo_nombre = (
-            _to_str(fila.get(mapeo["modulo"])) if "modulo" in mapeo else ""
-        )  # auxiliar para crear módulos
+        item._modulo_nombre = modulo_actual  # auxiliar para crear módulos
         items.append(item)
-    logger.info("Se parsearon %d ítems desde la tabla", len(items))
+
+    logger.info("Se parsearon %d ítems (módulos detectados incluidos)", len(items))
     return items
 
 
