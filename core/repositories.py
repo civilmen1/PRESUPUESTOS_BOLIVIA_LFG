@@ -25,10 +25,14 @@ def crear_proyecto(p: Proyecto) -> int:
         cur = conn.execute(
             """INSERT INTO proyectos
                (nombre, region, moneda, factor_indirectos, factor_utilidad,
-                factor_impuestos, estado)
-               VALUES (?,?,?,?,?,?,?)""",
+                factor_impuestos, factor_beneficios_sociales, factor_iva_mano_obra,
+                factor_herramientas, factor_iva_equipo, factor_gastos_generales,
+                factor_utilidad_sabs, factor_it, entidad, proponente, estado)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (p.nombre, p.region, p.moneda, p.factor_indirectos, p.factor_utilidad,
-             p.factor_impuestos, p.estado),
+             p.factor_impuestos, p.factor_beneficios_sociales, p.factor_iva_mano_obra,
+             p.factor_herramientas, p.factor_iva_equipo, p.factor_gastos_generales,
+             p.factor_utilidad_sabs, p.factor_it, p.entidad, p.proponente, p.estado),
         )
         return cur.lastrowid
 

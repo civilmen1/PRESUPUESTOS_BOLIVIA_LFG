@@ -25,6 +25,15 @@ CREATE TABLE IF NOT EXISTS proyectos (
     factor_indirectos REAL DEFAULT 0.10,
     factor_utilidad REAL DEFAULT 0.10,
     factor_impuestos REAL DEFAULT 0.0,
+    factor_beneficios_sociales REAL DEFAULT 0.55,
+    factor_iva_mano_obra REAL DEFAULT 0.1494,
+    factor_herramientas REAL DEFAULT 0.05,
+    factor_iva_equipo REAL DEFAULT 0.0,
+    factor_gastos_generales REAL DEFAULT 0.10,
+    factor_utilidad_sabs REAL DEFAULT 0.10,
+    factor_it REAL DEFAULT 0.0309,
+    entidad TEXT DEFAULT '',
+    proponente TEXT DEFAULT '',
     fecha_creacion TEXT DEFAULT (datetime('now')),
     estado TEXT DEFAULT 'activo'
 );
@@ -218,10 +227,38 @@ def db_session() -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+# Columnas añadidas tras la versión inicial -> migración no destructiva.
+_MIGRACIONES = {
+    "proyectos": {
+        "factor_beneficios_sociales": "REAL DEFAULT 0.55",
+        "factor_iva_mano_obra": "REAL DEFAULT 0.1494",
+        "factor_herramientas": "REAL DEFAULT 0.05",
+        "factor_iva_equipo": "REAL DEFAULT 0.0",
+        "factor_gastos_generales": "REAL DEFAULT 0.10",
+        "factor_utilidad_sabs": "REAL DEFAULT 0.10",
+        "factor_it": "REAL DEFAULT 0.0309",
+        "entidad": "TEXT DEFAULT ''",
+        "proponente": "TEXT DEFAULT ''",
+    },
+}
+
+
+def _migrar(conn: sqlite3.Connection) -> None:
+    """Agrega columnas nuevas a bases existentes (ALTER TABLE idempotente)."""
+    for tabla, columnas in _MIGRACIONES.items():
+        existentes = {row["name"] for row in
+                      conn.execute(f"PRAGMA table_info({tabla})").fetchall()}
+        for col, definicion in columnas.items():
+            if col not in existentes:
+                conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {col} {definicion}")
+                logger.info("Migración: columna %s.%s agregada", tabla, col)
+
+
 def init_db() -> None:
-    """Crea el esquema completo si no existe."""
+    """Crea el esquema completo si no existe y aplica migraciones."""
     with db_session() as conn:
         conn.executescript(SCHEMA)
+        _migrar(conn)
     logger.info("Esquema de base de datos inicializado en %s", settings.DB_PATH)
 
 

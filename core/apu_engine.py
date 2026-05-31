@@ -12,6 +12,7 @@ from typing import List, Optional
 from config.logging_config import get_logger
 from core import data_loader, repositories
 from core.pricing_engine import cotizar_recurso
+from core.sabs import calcular_desglose
 from core.text_cleaner import normalizar
 from models.apu_resource import (RecursoAPU, TIPO_EQUIPO, TIPO_MANO_OBRA,
                                  TIPO_MATERIAL)
@@ -106,32 +107,32 @@ def cotizar_recursos(recursos: List[RecursoAPU], proyecto: Proyecto,
 
 def calcular_resultado(item: Item, recursos: List[RecursoAPU],
                        proyecto: Proyecto) -> ResultadoAPU:
-    """Consolida costos y aplica indirectos, utilidad e impuestos."""
-    costo_mat = sum(r.subtotal for r in recursos if r.tipo == TIPO_MATERIAL)
-    costo_mo = sum(r.subtotal for r in recursos if r.tipo == TIPO_MANO_OBRA)
-    costo_eq = sum(r.subtotal for r in recursos if r.tipo == TIPO_EQUIPO)
-    costo_directo = costo_mat + costo_mo + costo_eq
+    """Consolida costos con la estructura NB-SABS (DS 0181) — Formulario B-2.
 
-    indirectos = costo_directo * proyecto.factor_indirectos
-    utilidad = (costo_directo + indirectos) * proyecto.factor_utilidad
-    base_imp = costo_directo + indirectos + utilidad
-    impuestos = base_imp * proyecto.factor_impuestos
-    total = base_imp + impuestos
+    En el ResultadoAPU se guardan las cifras consolidadas; el detalle completo
+    (beneficios sociales, IVA, herramientas, GG, utilidad, IT) se recalcula al
+    exportar los formularios con ``core.sabs.calcular_desglose``.
+      - costo_mano_obra  = mano de obra TOTAL (con beneficios + IVA)
+      - costo_equipos    = equipo TOTAL (con herramientas + IVA equipo)
+      - indirectos       = gastos generales
+      - impuestos        = IT (3.09%)
+    """
+    d = calcular_desglose(recursos, proyecto)
 
     alertas: List[str] = []
     if any(r.fuente_precio in ("sin_precio", "ninguna", "") for r in recursos):
         alertas.append("Hay recursos sin precio asignado")
     if any(r.fuente_precio == "email" for r in recursos):
         alertas.append("Hay recursos con cotización por email pendiente")
-    if costo_directo == 0:
+    if d.costo_directo == 0:
         alertas.append("Costo directo en cero: revisar recursos y precios")
 
     return ResultadoAPU(
-        item_id=item.id, costo_materiales=round(costo_mat, 2),
-        costo_mano_obra=round(costo_mo, 2), costo_equipos=round(costo_eq, 2),
-        costo_directo=round(costo_directo, 2), indirectos=round(indirectos, 2),
-        utilidad=round(utilidad, 2), impuestos=round(impuestos, 2),
-        precio_unitario_total=round(total, 2), alertas=alertas)
+        item_id=item.id, costo_materiales=d.materiales,
+        costo_mano_obra=d.mano_obra_total, costo_equipos=d.equipo_total,
+        costo_directo=d.costo_directo, indirectos=d.gastos_generales,
+        utilidad=d.utilidad, impuestos=d.impuestos_it,
+        precio_unitario_total=d.precio_unitario_total, alertas=alertas)
 
 
 def generar_apu_item(item: Item, proyecto: Proyecto, texto_extra: str = "",

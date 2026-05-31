@@ -49,6 +49,31 @@ FACTOR_INDIRECTOS_DEFAULT = float(os.getenv("APU_FACTOR_INDIRECTOS", "0.10"))
 FACTOR_UTILIDAD_DEFAULT = float(os.getenv("APU_FACTOR_UTILIDAD", "0.10"))
 FACTOR_IMPUESTOS_DEFAULT = float(os.getenv("APU_FACTOR_IMPUESTOS", "0.0"))
 
+# --------------------------------------------------------------------------- #
+# Estructura de APU boliviana (NB-SABS / DS 0181) — Formulario B-2
+# Porcentajes editables. Aplicación estándar en licitaciones de obra:
+#   MANO DE OBRA:  + beneficios sociales (% sobre MO) + IVA s/MO
+#   EQUIPO/HERR.:  herramientas menores (% sobre MO)
+#   COSTO DIRECTO = Materiales + Mano de obra + Equipo/Herramientas
+#   GASTOS GENERALES (% sobre costo directo)
+#   UTILIDAD (% sobre costo directo + GG)
+#   IMPUESTOS IT (% sobre subtotal anterior)
+# --------------------------------------------------------------------------- #
+# Beneficios sociales sobre la mano de obra (rango usual 55%–71.18%).
+FACTOR_BENEFICIOS_SOCIALES = float(os.getenv("APU_BENEFICIOS_SOCIALES", "0.55"))
+# IVA aplicado a la mano de obra (alícuota efectiva 14.94%).
+FACTOR_IVA_MANO_OBRA = float(os.getenv("APU_IVA_MANO_OBRA", "0.1494"))
+# Herramientas menores como % de la mano de obra (usual 5%).
+FACTOR_HERRAMIENTAS = float(os.getenv("APU_HERRAMIENTAS", "0.05"))
+# Cargas sociales/IVA sobre el equipo (normalmente 0; configurable).
+FACTOR_IVA_EQUIPO = float(os.getenv("APU_IVA_EQUIPO", "0.0"))
+# Gastos generales (% sobre costo directo; usual 8%–12%).
+FACTOR_GASTOS_GENERALES = float(os.getenv("APU_GASTOS_GENERALES", "0.10"))
+# Utilidad (% sobre costo directo + gastos generales; usual 7%–10%).
+FACTOR_UTILIDAD_SABS = float(os.getenv("APU_UTILIDAD_SABS", "0.10"))
+# Impuesto a las Transacciones IT (3.09% efectivo según DS 0181).
+FACTOR_IT = float(os.getenv("APU_IT", "0.0309"))
+
 # Vigencia de precios
 VIGENCIA_DIAS_DEFAULT = int(os.getenv("APU_VIGENCIA_DIAS", "30"))
 
