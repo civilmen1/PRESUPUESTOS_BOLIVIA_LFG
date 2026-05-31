@@ -74,8 +74,11 @@ def main() -> None:
 
     print("→ Creando proyecto demo...")
     proyecto = Proyecto(nombre="Proyecto Demo Vivienda", region="Santa Cruz",
-                        moneda="BOB", factor_indirectos=0.10,
-                        factor_utilidad=0.10, factor_impuestos=0.0)
+                        moneda="BOB", entidad="Gobierno Municipal Demo",
+                        proponente="Constructora Demo SRL",
+                        representante_legal="Ing. Juan Pérez Mamani",
+                        ci_representante="1234567 SC", plazo_dias=180,
+                        solicita_anticipo=True, porcentaje_anticipo=0.20)
     pid = repositories.crear_proyecto(proyecto)
     proyecto.id = pid
 

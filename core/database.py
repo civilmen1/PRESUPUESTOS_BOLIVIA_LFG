@@ -34,6 +34,11 @@ CREATE TABLE IF NOT EXISTS proyectos (
     factor_it REAL DEFAULT 0.0309,
     entidad TEXT DEFAULT '',
     proponente TEXT DEFAULT '',
+    representante_legal TEXT DEFAULT '',
+    ci_representante TEXT DEFAULT '',
+    plazo_dias INTEGER DEFAULT 180,
+    solicita_anticipo INTEGER DEFAULT 0,
+    porcentaje_anticipo REAL DEFAULT 0.0,
     fecha_creacion TEXT DEFAULT (datetime('now')),
     estado TEXT DEFAULT 'activo'
 );
@@ -239,6 +244,11 @@ _MIGRACIONES = {
         "factor_it": "REAL DEFAULT 0.0309",
         "entidad": "TEXT DEFAULT ''",
         "proponente": "TEXT DEFAULT ''",
+        "representante_legal": "TEXT DEFAULT ''",
+        "ci_representante": "TEXT DEFAULT ''",
+        "plazo_dias": "INTEGER DEFAULT 180",
+        "solicita_anticipo": "INTEGER DEFAULT 0",
+        "porcentaje_anticipo": "REAL DEFAULT 0.0",
     },
 }
 

@@ -108,6 +108,7 @@ def _b1_presupuesto(ws, proyecto, items):
     fila += 2
     _set(ws, f"A{fila}", f"Son: {_a_letras(total_general)} bolivianos.", _F_NORM,
          _LEFT)
+    _pie_firma(ws, fila + 2, proyecto, 6)
     return total_general
 
 
@@ -258,34 +259,230 @@ def _b4_equipo(ws, proyecto, items):
         fila += 1
 
 
-# ===================================================================== B-5
-def _b5_cronograma(ws, proyecto, items):
-    n_periodos = 6  # meses por defecto
+# ============================================================ cronograma base
+def _calcular_cronograma(proyecto, items):
+    """Calcula el cronograma base (compartido por A-8, A-9 y B-5).
+
+    Devuelve (n_periodos, datos) donde datos es una lista por ítem con:
+      {item, periodo (1..n), monto_total}
+    El plazo (proyecto.plazo_dias) define n_periodos = ceil(plazo/30) meses.
+    Cada ítem se asigna a un mes según su posición secuencial en la obra.
+    """
+    import math
+    plazo = max(int(getattr(proyecto, "plazo_dias", 180) or 180), 30)
+    n_periodos = max(1, math.ceil(plazo / 30))
+
+    reales = [it for it in items if it.descripcion]
+    total_items = max(len(reales), 1)
+    datos = []
+    for idx, it in enumerate(reales):
+        periodo = min(n_periodos, 1 + int(idx * n_periodos / total_items))
+        res = repositories.obtener_resultado(it.id)
+        pu = res.precio_unitario_total if res else 0.0
+        datos.append({"item": it, "periodo": periodo,
+                      "monto_total": pu * (it.cantidad or 0.0)})
+    return n_periodos, datos
+
+
+def _montos_por_periodo(n_periodos, datos):
+    """Suma el monto de obra ejecutado en cada período (1..n)."""
+    montos = [0.0] * (n_periodos + 1)  # índice 0 sin uso
+    for d in datos:
+        montos[d["periodo"]] += d["monto_total"]
+    return montos
+
+
+# ===================================================================== A-8
+def _a8_cronograma_obra(ws, proyecto, items):
+    n_periodos, datos = _calcular_cronograma(proyecto, items)
     ncols = 4 + n_periodos
-    fila = _encabezado(ws, "B-5", "Cronograma de Ejecución de Obra", proyecto, ncols)
-    headers = ["N°", "Ítem", "Unidad", "Cantidad"] + [f"Mes {i}" for i in
-                                                      range(1, n_periodos + 1)]
-    anchos = [6, 40, 10, 12] + [9] * n_periodos
+    fila = _encabezado(ws, "A-8", "Cronograma de Ejecución de Obra", proyecto, ncols)
+    _set(ws, f"A{fila-1}", f"Plazo de ejecución: {proyecto.plazo_dias} días "
+                           f"calendario ({n_periodos} meses)", _F_NORM, _LEFT)
+    fila += 1
+    headers = ["N°", "Ítem / Actividad", "Unidad", "Cantidad"] + \
+              [f"Mes {i}" for i in range(1, n_periodos + 1)]
+    anchos = [6, 38, 9, 11] + [8] * n_periodos
     _fila_headers(ws, fila, headers, anchos)
     fila += 1
-    for idx, it in enumerate(items):
+    for d in datos:
+        it = d["item"]
         _set(ws, f"A{fila}", it.numero, _F_NORM, _CENTER)
         _set(ws, f"B{fila}", it.descripcion, _F_NORM, _LEFT)
         _set(ws, f"C{fila}", it.unidad, _F_NORM, _CENTER)
         _set(ws, f"D{fila}", it.cantidad, _F_NORM, _RIGHT, fmt="#,##0.00")
-        # barra de Gantt simple: distribuye el ítem en 1-2 meses según su posición
-        mes = min(n_periodos, 1 + int(idx * n_periodos / max(len(items), 1)))
         for m in range(1, n_periodos + 1):
             col = get_column_letter(4 + m)
-            marca = "■" if m == mes else ""
-            _set(ws, f"{col}{fila}", marca, _F_NORM, _CENTER)
+            _set(ws, f"{col}{fila}", "■" if m == d["periodo"] else "", _F_NORM,
+                 _CENTER)
             ws[f"{col}{fila}"].border = _BORDE
         for c in "ABCD":
             ws[f"{c}{fila}"].border = _BORDE
         fila += 1
+
+    # Fila de avance valorado y % por período
+    montos = _montos_por_periodo(n_periodos, datos)
+    total = sum(montos)
+    _set(ws, f"A{fila}", "AVANCE VALORADO (Bs)", _F_BOLD, _RIGHT, _FILL_GRIS)
+    ws.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=4)
+    for m in range(1, n_periodos + 1):
+        col = get_column_letter(4 + m)
+        _set(ws, f"{col}{fila}", round(montos[m], 2), _F_BOLD, _RIGHT, _FILL_GRIS,
+             "#,##0")
     fila += 1
-    _set(ws, f"A{fila}", "Nota: cronograma referencial. Ajuste los períodos y la "
-                         "distribución según el plazo del contrato.", _F_NORM, _LEFT)
+    _set(ws, f"A{fila}", "AVANCE (%)", _F_BOLD, _RIGHT, _FILL_GRIS)
+    ws.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=4)
+    for m in range(1, n_periodos + 1):
+        col = get_column_letter(4 + m)
+        pct = (montos[m] / total * 100) if total else 0.0
+        _set(ws, f"{col}{fila}", round(pct, 1), _F_BOLD, _RIGHT, _FILL_GRIS, "0.0")
+    fila += 2
+    _pie_firma(ws, fila, proyecto, ncols)
+
+
+# ===================================================================== A-9
+def _a9_movilizacion(ws, proyecto, items):
+    """Cronograma de movilización de equipos (en función del equipo del B-2)."""
+    n_periodos, datos = _calcular_cronograma(proyecto, items)
+    ncols = 2 + n_periodos
+    fila = _encabezado(ws, "A-9", "Cronograma de Movilización de Equipo",
+                       proyecto, ncols)
+    fila += 1
+    headers = ["N°", "Equipo / Maquinaria"] + [f"Mes {i}" for i in
+                                               range(1, n_periodos + 1)]
+    anchos = [6, 40] + [8] * n_periodos
+    _fila_headers(ws, fila, headers, anchos)
+    fila += 1
+
+    # Para cada equipo (del B-2), determinar en qué meses se usa: los meses de
+    # los ítems que contienen ese equipo.
+    periodo_por_item = {d["item"].id: d["periodo"] for d in datos}
+    equipos: dict[str, set] = {}
+    for it in items:
+        for r in repositories.listar_recursos(it.id):
+            if r.tipo == TIPO_EQUIPO:
+                k = r.descripcion.strip()
+                equipos.setdefault(k, set())
+                if it.id in periodo_por_item:
+                    equipos[k].add(periodo_por_item[it.id])
+
+    if not equipos:
+        ws.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=ncols)
+        _set(ws, f"A{fila}", "Sin equipo registrado en los APU (Formulario B-2).",
+             _F_NORM, _LEFT)
+        fila += 2
+        _pie_firma(ws, fila, proyecto, ncols)
+        return
+
+    for i, (nombre, meses) in enumerate(sorted(equipos.items()), 1):
+        _set(ws, f"A{fila}", i, _F_NORM, _CENTER)
+        _set(ws, f"B{fila}", nombre, _F_NORM, _LEFT)
+        # el equipo permanece movilizado desde el primer hasta el último mes de uso
+        m_ini, m_fin = (min(meses), max(meses)) if meses else (1, 1)
+        for m in range(1, n_periodos + 1):
+            col = get_column_letter(2 + m)
+            marca = "■" if m_ini <= m <= m_fin else ""
+            _set(ws, f"{col}{fila}", marca, _F_NORM, _CENTER)
+            ws[f"{col}{fila}"].border = _BORDE
+        for c in ("A", "B"):
+            ws[f"{c}{fila}"].border = _BORDE
+        fila += 1
+    fila += 1
+    _set(ws, f"A{fila}", "Nota: la movilización abarca desde el primer hasta el "
+                         "último mes de uso de cada equipo según el A-8.", _F_NORM,
+         _LEFT)
+    fila += 2
+    _pie_firma(ws, fila, proyecto, ncols)
+
+
+# ===================================================================== B-5
+def _b5_desembolsos(ws, proyecto, items):
+    """Cronograma de desembolsos. Depende del A-8 y del anticipo solicitado."""
+    n_periodos, datos = _calcular_cronograma(proyecto, items)
+    fila = _encabezado(ws, "B-5", "Cronograma de Desembolsos", proyecto, 5)
+
+    montos = _montos_por_periodo(n_periodos, datos)
+    total_obra = sum(montos)
+
+    anticipo = (total_obra * proyecto.porcentaje_anticipo
+                if proyecto.solicita_anticipo else 0.0)
+
+    # Mensaje de anticipo
+    if proyecto.solicita_anticipo:
+        _set(ws, f"A{fila}", f"Anticipo solicitado: SÍ  ·  "
+                             f"{proyecto.porcentaje_anticipo*100:.0f}% = "
+                             f"Bs {anticipo:,.2f}", _F_BOLD, _LEFT)
+    else:
+        _set(ws, f"A{fila}", "Anticipo solicitado: NO", _F_BOLD, _LEFT)
+    fila += 2
+
+    _fila_headers(ws, fila, ["Período", "Avance valorado (Bs)",
+                             "Amortización anticipo (Bs)", "Desembolso neto (Bs)",
+                             "Acumulado (Bs)"],
+                  [22, 20, 22, 20, 20])
+    fila += 1
+
+    # Fila de anticipo (al inicio, si aplica)
+    acumulado = 0.0
+    if anticipo:
+        acumulado += anticipo
+        _set(ws, f"A{fila}", "Anticipo (inicio)", _F_BOLD, _LEFT)
+        _set(ws, f"B{fila}", 0.0, _F_NORM, _RIGHT, fmt="#,##0.00")
+        _set(ws, f"C{fila}", 0.0, _F_NORM, _RIGHT, fmt="#,##0.00")
+        _set(ws, f"D{fila}", anticipo, _F_BOLD, _RIGHT, fmt="#,##0.00")
+        _set(ws, f"E{fila}", acumulado, _F_NORM, _RIGHT, fmt="#,##0.00")
+        for c in "ABCDE":
+            ws[f"{c}{fila}"].border = _BORDE
+        fila += 1
+
+    # Desembolsos por mes: avance del mes menos amortización proporcional del anticipo
+    for m in range(1, n_periodos + 1):
+        avance = montos[m]
+        # amortización proporcional al avance del período
+        amort = (anticipo * (avance / total_obra)) if total_obra else 0.0
+        desembolso = avance - amort
+        acumulado += desembolso
+        _set(ws, f"A{fila}", f"Mes {m}", _F_NORM, _LEFT)
+        _set(ws, f"B{fila}", round(avance, 2), _F_NORM, _RIGHT, fmt="#,##0.00")
+        _set(ws, f"C{fila}", round(amort, 2), _F_NORM, _RIGHT, fmt="#,##0.00")
+        _set(ws, f"D{fila}", round(desembolso, 2), _F_NORM, _RIGHT, fmt="#,##0.00")
+        _set(ws, f"E{fila}", round(acumulado, 2), _F_NORM, _RIGHT, fmt="#,##0.00")
+        for c in "ABCDE":
+            ws[f"{c}{fila}"].border = _BORDE
+        fila += 1
+
+    # Totales
+    _set(ws, f"A{fila}", "TOTAL", _F_BOLD, _RIGHT, _FILL_GRIS)
+    _set(ws, f"B{fila}", round(total_obra, 2), _F_BOLD, _RIGHT, _FILL_GRIS, "#,##0.00")
+    _set(ws, f"C{fila}", round(anticipo, 2), _F_BOLD, _RIGHT, _FILL_GRIS, "#,##0.00")
+    _set(ws, f"D{fila}", round(total_obra - anticipo, 2), _F_BOLD, _RIGHT,
+         _FILL_GRIS, "#,##0.00")
+    _set(ws, f"E{fila}", round(acumulado, 2), _F_BOLD, _RIGHT, _FILL_GRIS, "#,##0.00")
+    for c in "ABCDE":
+        ws[f"{c}{fila}"].border = _BORDE
+    fila += 2
+    _pie_firma(ws, fila, proyecto, 5)
+
+
+# ---------------------------------------------------------------- pie de firma
+def _pie_firma(ws, fila, proyecto, ncols):
+    """Bloque de firma del representante legal al pie del formulario."""
+    fila += 2
+    centro = max(2, ncols // 2)
+    col = get_column_letter(centro)
+    _set(ws, f"{col}{fila}", "_______________________________", _F_NORM, _CENTER)
+    fila += 1
+    nombre = proyecto.representante_legal or "(Representante Legal)"
+    _set(ws, f"{col}{fila}", nombre, _F_BOLD, _CENTER)
+    fila += 1
+    if proyecto.ci_representante:
+        _set(ws, f"{col}{fila}", f"C.I. {proyecto.ci_representante}", _F_NORM,
+             _CENTER)
+        fila += 1
+    _set(ws, f"{col}{fila}", "REPRESENTANTE LEGAL", _F_NORM, _CENTER)
+    fila += 1
+    empresa = proyecto.proponente or proyecto.nombre
+    _set(ws, f"{col}{fila}", empresa, _F_NORM, _CENTER)
 
 
 # ---------------------------------------------------------------- helpers
@@ -316,12 +513,16 @@ def _a_letras(monto: float) -> str:
 
 # ---------------------------------------------------------------- API
 def exportar_formularios(proyecto_id: int, ruta: str | Path | None = None) -> Path:
-    """Genera el libro Excel con los Formularios B-1 a B-5."""
+    """Genera el libro Excel con los Formularios oficiales NB-SABS (DS 0181):
+
+      B-1 Presupuesto · B-2 APU · B-3 Elementales · B-4 Equipo Mínimo
+      A-8 Cronograma de Obra · A-9 Movilización de Equipo · B-5 Desembolsos
+    """
     proyecto = repositories.obtener_proyecto(proyecto_id)
     if not proyecto:
         raise ValueError(f"Proyecto {proyecto_id} no encontrado")
     if ruta is None:
-        ruta = settings.EXPORT_DIR / f"formularios_B1_B5_proyecto_{proyecto_id}.xlsx"
+        ruta = settings.EXPORT_DIR / f"formularios_proyecto_{proyecto_id}.xlsx"
     ruta = Path(ruta)
 
     items = repositories.listar_items(proyecto_id)
@@ -332,6 +533,8 @@ def exportar_formularios(proyecto_id: int, ruta: str | Path | None = None) -> Pa
     _b2_apus(wb.create_sheet("B-2 APU"), proyecto, items)
     _b3_elementales(wb.create_sheet("B-3 Elementales"), proyecto, items)
     _b4_equipo(wb.create_sheet("B-4 Equipo"), proyecto, items)
-    _b5_cronograma(wb.create_sheet("B-5 Cronograma"), proyecto, items)
+    _a8_cronograma_obra(wb.create_sheet("A-8 Cronograma Obra"), proyecto, items)
+    _a9_movilizacion(wb.create_sheet("A-9 Movilizacion"), proyecto, items)
+    _b5_desembolsos(wb.create_sheet("B-5 Desembolsos"), proyecto, items)
     wb.save(ruta)
     return ruta

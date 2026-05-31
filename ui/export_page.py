@@ -18,9 +18,13 @@ def render(proyecto):
     st.write(f"Proyecto: **{proyecto.nombre}**")
 
     st.subheader("📑 Formularios oficiales NB-SABS (DS 0181)")
-    st.caption("B-1 Presupuesto General · B-2 Análisis de Precios Unitarios · "
-               "B-3 Precios Elementales · B-4 Equipo Mínimo · B-5 Cronograma")
-    if st.button("🇧🇴 Generar Formularios B-1 a B-5 (Excel)", type="primary",
+    st.caption("B-1 Presupuesto · B-2 APU · B-3 Precios Elementales · "
+               "B-4 Equipo Mínimo · A-8 Cronograma de Obra · "
+               "A-9 Movilización de Equipo · B-5 Cronograma de Desembolsos")
+    if not proyecto.representante_legal:
+        st.info("💡 Define el representante legal y el plazo/anticipo al crear el "
+                "proyecto para que los formularios salgan completos.")
+    if st.button("🇧🇴 Generar Formularios oficiales (Excel)", type="primary",
                  use_container_width=True):
         ruta = exportar_formularios(proyecto.id)
         with open(ruta, "rb") as fh:

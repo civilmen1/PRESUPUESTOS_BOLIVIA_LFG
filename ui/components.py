@@ -21,13 +21,26 @@ def selector_proyecto() -> Proyecto | None:
 
     with st.sidebar.expander("➕ Nuevo proyecto"):
         with st.form("nuevo_proyecto", clear_on_submit=True):
-            nombre = st.text_input("Nombre")
+            nombre = st.text_input("Nombre del proyecto")
             entidad = st.text_input("Entidad convocante")
-            proponente = st.text_input("Proponente / Empresa")
+            proponente = st.text_input("Nombre de la empresa proponente")
             region = st.selectbox("Región (departamento)", [
                 "La Paz", "Santa Cruz", "Cochabamba", "Oruro", "Potosí",
                 "Tarija", "Chuquisaca", "Beni", "Pando"])
             moneda = st.selectbox("Moneda", ["BOB", "USD"])
+
+            st.caption("**Representante legal (pie de firma)**")
+            rep_legal = st.text_input("Nombre del representante legal")
+            ci_rep = st.text_input("C.I. del representante legal")
+
+            st.caption("**Plazo y anticipo (A-8 / B-5)**")
+            colp1, colp2 = st.columns(2)
+            plazo = colp1.number_input("Plazo de obra (días)", 1, 3650, 180, 1)
+            solicita_ant = colp2.checkbox("Solicita anticipo")
+            pct_ant = st.number_input(
+                "Porcentaje de anticipo (%)", 0.0, 100.0, 20.0, 1.0,
+                disabled=not solicita_ant,
+                help="Se aplica solo si 'Solicita anticipo' está marcado") / 100.0
 
             st.caption("**Estructura NB-SABS (DS 0181) — Formulario B-2**")
             col1, col2 = st.columns(2)
@@ -49,6 +62,9 @@ def selector_proyecto() -> Proyecto | None:
                 pid = repositories.crear_proyecto(Proyecto(
                     nombre=nombre, region=region, moneda=moneda,
                     entidad=entidad, proponente=proponente,
+                    representante_legal=rep_legal, ci_representante=ci_rep,
+                    plazo_dias=int(plazo), solicita_anticipo=solicita_ant,
+                    porcentaje_anticipo=pct_ant,
                     factor_beneficios_sociales=bs, factor_iva_mano_obra=iva_mo,
                     factor_herramientas=herr, factor_gastos_generales=gg,
                     factor_utilidad_sabs=ut, factor_it=it))

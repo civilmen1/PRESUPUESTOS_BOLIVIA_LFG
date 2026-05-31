@@ -26,7 +26,14 @@ class Proyecto:
     factor_it: float = settings.FACTOR_IT
     # Datos de cabecera para formularios oficiales
     entidad: str = ""
-    proponente: str = ""
+    proponente: str = ""           # nombre de la empresa proponente
+    representante_legal: str = ""  # nombre del rep. legal (pie de firma)
+    ci_representante: str = ""     # cédula de identidad del rep. legal
+    # Plazo y cronogramas (A-8, A-9, B-5)
+    plazo_dias: int = 180          # plazo de ejecución de obra (calendario)
+    # Anticipo (afecta el Formulario B-5 desembolsos)
+    solicita_anticipo: bool = False
+    porcentaje_anticipo: float = 0.0   # ej. 0.20 = 20%
     fecha_creacion: Optional[str] = None
     estado: str = "activo"
 
