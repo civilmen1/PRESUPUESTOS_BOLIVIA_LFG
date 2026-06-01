@@ -254,6 +254,35 @@ def borrar_vinculos_item(item_id: int) -> None:
         conn.execute("DELETE FROM vinculos_tecnicos WHERE item_id=?", (item_id,))
 
 
+def texto_tecnico_item(item_id: int, solo_validados: bool = False,
+                       solo_mejor: bool = True) -> str:
+    """Devuelve el texto de las especificaciones vinculadas a un ítem.
+
+    - Si hay vínculos VALIDADOS a mano, usa solo esos (máxima precisión).
+    - Si no, y `solo_mejor` (por defecto), usa solo la sección de mayor score
+      (la especificación más probable del ítem), evitando contaminar con las
+      especificaciones de ítems vecinos.
+    - `solo_validados=True` fuerza usar únicamente los validados.
+    """
+    sql = ("""SELECT s.titulo, s.contenido, vt.validado_manual, vt.score_confianza
+              FROM vinculos_tecnicos vt
+              JOIN secciones_tecnicas s ON vt.seccion_id = s.id
+              WHERE vt.item_id=? ORDER BY vt.score_confianza DESC""")
+    with db_session() as conn:
+        filas = conn.execute(sql, (item_id,)).fetchall()
+
+    validados = [r for r in filas if r["validado_manual"]]
+    if solo_validados:
+        usar = validados
+    elif validados:
+        usar = validados                      # prioridad a lo validado
+    elif solo_mejor and filas:
+        usar = [filas[0]]                      # solo la mejor coincidencia
+    else:
+        usar = filas
+    return "\n\n".join(f"{r['titulo']}\n{r['contenido'] or ''}" for r in usar)
+
+
 # --------------------------------------------------------------------------- #
 # Recursos APU
 # --------------------------------------------------------------------------- #

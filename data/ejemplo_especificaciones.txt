@@ -1,0 +1,63 @@
+ESPECIFICACIONES TECNICAS
+PROYECTO DEMO VIVIENDA
+
+MODULO 1 OBRAS PRELIMINARES
+
+1.1 EXCAVACION MANUAL PARA CIMIENTOS
+DEFINICION Y ALCANCE: Este item comprende la excavacion manual de zanjas y
+pozos para la fundacion de la estructura, en terreno semiduro, hasta las cotas
+indicadas en planos.
+EJECUCION: La excavacion se realizara con pico y pala. Personal: ayudantes
+(peones) bajo supervision del maestro albañil. Se usara herramienta menor.
+MEDICION Y FORMA DE PAGO: Se medira en metros cubicos (m3) de material
+efectivamente excavado y se pagara segun el precio unitario del contrato.
+
+MODULO 2 OBRA GRUESA
+
+2.1 HORMIGON ARMADO PARA ZAPATAS H21
+DEFINICION: Comprende la provision y colocado de hormigon armado de resistencia
+caracteristica H21 (210 kg/cm2) para zapatas de fundacion.
+MATERIALES: Cemento portland IP-30, arena lavada, grava de 3/4", agua limpia y
+acero corrugado fy=4200 kg/cm2. El encofrado sera de madera de construccion.
+EJECUCION: El hormigon se mezclara en hormigonera (mezcladora) y se compactara
+con vibradora de inmersion. Personal: maestro mayor, albañil, fierrista (armador)
+y ayudantes. Curado minimo de 7 dias.
+NORMAS: NB 1225001, ASTM C150, ACI 318.
+MEDICION Y FORMA DE PAGO: Se medira en metros cubicos (m3) de hormigon colocado.
+
+2.2 MURO DE MAMPOSTERIA DE LADRILLO GAMBOTE
+DEFINICION: Construccion de muros de ladrillo gambote de 18 cm de espesor.
+MATERIALES: Ladrillo gambote, cemento, arena fina y agua para el mortero de
+asentado (proporcion 1:4).
+EJECUCION: Asentado de ladrillo a cargo del albañil con ayudante. Uso de
+herramienta menor y andamios para alturas mayores a 1.50 m.
+MEDICION: Se medira en metros cuadrados (m2) de muro ejecutado.
+
+MODULO 3 INSTALACIONES
+
+3.1 PROVISION Y TENDIDO DE TUBERIA PVC 4"
+DEFINICION: Provision e instalacion de tuberia de PVC de 4 pulgadas para el
+sistema de desague y alcantarillado sanitario.
+MATERIALES: Tuberia PVC, accesorios (codos, tees), pegamento PVC para union.
+EJECUCION: El tendido lo ejecutara el plomero (instalador sanitario) con
+ayudante, segun pendientes de planos. Uso de herramienta menor.
+NORMAS: NB 213.
+MEDICION Y FORMA DE PAGO: Se medira en metros lineales (ml) de tuberia instalada.
+
+MODULO 4 ACABADOS
+
+4.1 PINTURA LATEX EN MUROS INTERIORES
+DEFINICION: Aplicacion de pintura latex en muros interiores, dos manos, previo
+masillado y lijado de la superficie.
+MATERIALES: Pintura latex interior, masilla, lija.
+EJECUCION: A cargo del pintor con ayudante. Uso de herramienta menor (rodillos,
+brochas).
+MEDICION: Se medira en metros cuadrados (m2) de superficie pintada.
+
+4.2 REVESTIMIENTO CERAMICO DE PISOS
+DEFINICION: Provision y colocado de ceramica esmaltada en pisos.
+MATERIALES: Ceramica 30x30, pegamento ceramico, fragua. Agua para la mezcla.
+EJECUCION: Colocado por albañil especializado con ayudante. Uso de amoladora
+para cortes y herramienta menor.
+NORMAS: NB 1231.
+MEDICION Y FORMA DE PAGO: Se medira en metros cuadrados (m2) de piso revestido.

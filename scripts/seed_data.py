@@ -12,13 +12,42 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from config import settings  # noqa: E402
 from core import apu_engine, repositories  # noqa: E402
 from core.database import init_db  # noqa: E402
+from core.parser_documento import detectar_tipo, extraer_texto  # noqa: E402
+from core.segmentador import segmentar  # noqa: E402
+from core.semantic_matcher import SemanticMatcher  # noqa: E402
 from core.text_cleaner import extraer_keywords  # noqa: E402
 from models.item import Item  # noqa: E402
 from models.project import Proyecto  # noqa: E402
 from models.supplier import Proveedor  # noqa: E402
+from models.technical_source import FuenteTecnica  # noqa: E402
 from providers import supplier_repository  # noqa: E402
+
+
+def _cargar_especificaciones(proyecto_id: int) -> None:
+    """Carga el documento de especificaciones de ejemplo, lo segmenta y vincula."""
+    ruta = settings.DATA_DIR / "ejemplo_especificaciones.txt"
+    if not ruta.exists():
+        return
+    texto = extraer_texto(ruta)
+    fuente_id = repositories.crear_fuente(FuenteTecnica(
+        proyecto_id=proyecto_id, tipo_documento=detectar_tipo(ruta.name),
+        nombre_archivo=ruta.name, ruta=str(ruta), texto_extraido=texto))
+    for s in segmentar(texto, fuente_id=fuente_id):
+        repositories.crear_seccion(s)
+
+    # Vinculación jerárquica módulo → ítem
+    secciones = repositories.listar_secciones(proyecto_id)
+    modulos = repositories.nombres_modulos_de_items(proyecto_id)
+    matcher = SemanticMatcher(secciones)
+    for it in repositories.listar_items(proyecto_id):
+        if it.es_modulo:
+            continue
+        repositories.borrar_vinculos_item(it.id)
+        for v in matcher.buscar(it, top_k=3, modulo_nombre=modulos.get(it.id, "")):
+            repositories.guardar_vinculo(v)
 
 PROVEEDORES = [
     Proveedor(nombre="Ferretería La Económica", email="ventas@economica.bo",
@@ -88,6 +117,10 @@ def main() -> None:
             proyecto_id=pid, modulo_id=mod_id, numero=numero, descripcion=desc,
             unidad=unidad, cantidad=cantidad,
             palabras_clave=", ".join(extraer_keywords(desc, 8))))
+
+    # --- Cargar especificaciones técnicas de ejemplo y vincularlas ---
+    print("→ Cargando especificaciones técnicas de ejemplo...")
+    _cargar_especificaciones(pid)
 
     print("→ Generando APUs (cotizador jerárquico)...")
     resultados = apu_engine.generar_apu_proyecto(proyecto, permitir_web=True,

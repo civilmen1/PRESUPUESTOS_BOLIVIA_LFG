@@ -4,6 +4,7 @@ from __future__ import annotations
 import streamlit as st
 
 from core import repositories
+from core.info_extractor import extraer_info
 from core.semantic_matcher import SemanticMatcher
 from ui.components import requiere_proyecto
 
@@ -55,8 +56,31 @@ def render(proyecto):
         with st.expander(f"📌 {encabezado}  ·  {len(vinculos)} vínculos "
                          f"({validados} validados)"):
             if not vinculos:
-                st.caption("Sin vínculos. Ejecuta la vinculación semántica.")
+                st.caption("Sin vínculos. Ejecuta la vinculación inteligente.")
                 continue
+
+            # --- Información técnica EXTRAÍDA del documento para este ítem ---
+            spec = repositories.texto_tecnico_item(it.id)
+            info = extraer_info(it.descripcion, spec, it.id)
+            st.markdown("**🧠 Información cargada de la especificación:**")
+            ca, cb, cc = st.columns(3)
+            ca.markdown("**Materiales**")
+            ca.write(", ".join(info.materiales) or "—")
+            cb.markdown("**Mano de obra**")
+            cb.write(", ".join(info.mano_obra) or "—")
+            cc.markdown("**Equipo**")
+            cc.write(", ".join(info.equipo) or "—")
+            if info.normas:
+                st.caption("📐 Normas: " + ", ".join(info.normas))
+            if info.medicion:
+                st.caption("📏 Medición/pago: " + info.medicion[:200])
+            if info.alcance:
+                with st.popover("📄 Ver alcance / texto técnico"):
+                    st.write(info.alcance)
+            st.divider()
+
+            st.markdown("**Secciones del documento vinculadas** "
+                        "(valida las correctas):")
             for v in vinculos:
                 c1, c2 = st.columns([4, 1])
                 c1.markdown(f"**{v.titulo_seccion}** — score "

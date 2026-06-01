@@ -213,6 +213,20 @@ def generar_apu_item(item: Item, proyecto: Proyecto, texto_extra: str = "",
     if persistir:
         repositories.borrar_recursos_item(item.id)
 
+    # Carga la especificación técnica vinculada (módulo → ítem) para enriquecer
+    # la inferencia de recursos con el alcance, materiales, mano de obra y equipo
+    # que menciona el documento.
+    if not texto_extra and item.id:
+        try:
+            spec = repositories.texto_tecnico_item(item.id)
+            if spec:
+                from core.info_extractor import extraer_info
+                info = extraer_info(item.descripcion, spec, item.id)
+                texto_extra = info.como_texto()
+        except Exception:
+            logger.exception("No se pudo cargar la especificación del ítem %s",
+                             item.id)
+
     recursos = inferir_recursos(item, texto_extra)
 
     if persistir:
