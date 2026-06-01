@@ -179,18 +179,34 @@ Tesseract** automáticamente. Requiere instalar los binarios del sistema:
 ### 🆓 LLM LOCAL GRATIS con Ollama (recomendado — sin tokens ni internet)
 
 1. Instala **Ollama**: https://ollama.com
-2. Descarga un modelo (una vez):
+2. Descarga un modelo liviano (una vez):
    ```bash
-   ollama pull llama3.1        # o qwen2.5, mistral, gemma2, etc.
+   ollama pull qwen2.5:3b      # apto para 8 GB de RAM
    ```
 3. En `.env`:
    ```env
    USAR_LLM=true
    USAR_OLLAMA=true
-   OLLAMA_MODEL=llama3.1
+   OLLAMA_MODEL=qwen2.5:3b
    ```
 El modelo corre **en tu PC**, gratis y offline. No requiere instalar SDKs
 adicionales (usa la API HTTP de Ollama con `requests`).
+
+**Modelo según tu PC:** 8 GB RAM → `qwen2.5:3b` o `gemma2:2b`; 16 GB →
+`llama3.1` (8B); 32 GB/GPU → `qwen2.5:14b`.
+
+### 🟢 Instalación en la unidad D: (para no llenar el disco C, 8 GB RAM)
+
+Desde la carpeta del proyecto, en PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup_windows_D.ps1
+```
+
+El script crea el entorno virtual, los datos y la base de datos en
+`D:\APU_Bolivia`, configura **Ollama para guardar los modelos en D:**
+(`OLLAMA_MODELS`), descarga `qwen2.5:3b` y genera el `.env` con el LLM local
+activado. Edita la variable `$Unidad` del script si usas otra letra.
 
 ### LLMs de pago (opcionales) — arquitectura multi-modelo
 
