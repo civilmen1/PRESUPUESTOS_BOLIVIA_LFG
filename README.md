@@ -173,19 +173,37 @@ Tesseract** automáticamente. Requiere instalar los binarios del sistema:
 - Paquete de idioma español (`spa`) recomendado.
 - Sin Tesseract instalado, el OCR se omite sin romper la app.
 
-**Extracción con IA / LLM** (`core/llm_extractor.py`, opcional): arquitectura
-multi-modelo, cada uno en su rol óptimo. Se activa con `USAR_LLM=true` y al
-menos una API key; si no, usa el extractor offline por reglas.
+**Extracción con IA / LLM** (`core/llm_extractor.py`, opcional): se activa con
+`USAR_LLM=true`; si no hay proveedor, usa el extractor offline por reglas.
+
+### 🆓 LLM LOCAL GRATIS con Ollama (recomendado — sin tokens ni internet)
+
+1. Instala **Ollama**: https://ollama.com
+2. Descarga un modelo (una vez):
+   ```bash
+   ollama pull llama3.1        # o qwen2.5, mistral, gemma2, etc.
+   ```
+3. En `.env`:
+   ```env
+   USAR_LLM=true
+   USAR_OLLAMA=true
+   OLLAMA_MODEL=llama3.1
+   ```
+El modelo corre **en tu PC**, gratis y offline. No requiere instalar SDKs
+adicionales (usa la API HTTP de Ollama con `requests`).
+
+### LLMs de pago (opcionales) — arquitectura multi-modelo
 
 | Rol | Modelo | Tarea |
 |-----|--------|-------|
-| 1. Extracción estructurada | **GPT-4o** | partidas, cantidades, unidades, recursos |
-| 2. Interpretación normativa | **Claude Sonnet** | NB-DS 2023, NB 1225001, ACI/ASTM |
+| 1. Extracción estructurada | **GPT-4o** / Ollama | partidas, cantidades, recursos |
+| 2. Interpretación normativa | **Claude Sonnet** / Ollama | NB-DS 2023, NB 1225001 |
 | 3. Análisis de planos/PDF | **Gemini** | multimodal + contexto largo |
 
-Configura en `.env`: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`.
-Instala los SDKs (descomenta en `requirements.txt`): `openai`, `anthropic`,
-`google-generativeai`.
+Configura en `.env`: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`
+e instala los SDKs (descomenta en `requirements.txt`). El orden de preferencia
+para extracción es: **Ollama local → GPT-4o**; para normativa: **Claude →
+Ollama local**. Si nada está disponible, cae al extractor offline.
 
 ## 9. Notas sobre componentes mock / sustituibles
 

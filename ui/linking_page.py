@@ -34,11 +34,12 @@ def render(proyecto):
             disp = proveedores_disponibles()
             activos = [k for k, v in disp.items() if v]
             if activos:
-                st.success("🤖 Extracción con IA activa: " + ", ".join(activos)
-                           + " (GPT-4o=partidas · Claude=normativa · Gemini=planos)")
+                st.success("🤖 Extracción con IA activa: " + ", ".join(activos))
             else:
-                st.warning("USAR_LLM activo pero sin API keys: usando extractor "
-                           "offline. Configura OPENAI/ANTHROPIC/GEMINI en .env.")
+                st.warning("USAR_LLM activo pero sin proveedor disponible. Para "
+                           "LLM **local gratis**: instala Ollama, ejecuta "
+                           "`ollama pull llama3.1` y pon USAR_OLLAMA=true en .env. "
+                           "Mientras tanto se usa el extractor offline.")
         except Exception:
             pass
 

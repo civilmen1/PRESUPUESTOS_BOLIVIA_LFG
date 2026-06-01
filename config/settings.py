@@ -130,6 +130,11 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-pro-exp")
+# LLM LOCAL GRATIS (Ollama): corre modelos en tu PC, sin tokens ni internet.
+# Instala Ollama (https://ollama.com) y un modelo: `ollama pull llama3.1`
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1")
+USAR_OLLAMA = os.getenv("USAR_OLLAMA", "false").lower() in {"1", "true", "yes"}
 # Activa el uso de LLM en la extracción (requiere al menos una API key).
 USAR_LLM = os.getenv("USAR_LLM", "false").lower() in {"1", "true", "yes"}
 

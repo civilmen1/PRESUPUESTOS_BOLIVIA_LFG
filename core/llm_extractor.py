@@ -33,8 +33,13 @@ logger = get_logger(__name__)
 # Disponibilidad de proveedores
 # --------------------------------------------------------------------------- #
 def proveedores_disponibles() -> dict:
-    """Indica qué proveedores LLM tienen API key configurada."""
+    """Indica qué proveedores LLM están disponibles.
+
+    Ollama es LOCAL y GRATIS: disponible si el servicio responde en OLLAMA_HOST.
+    Los demás dependen de su API key (de pago).
+    """
     return {
+        "ollama (local gratis)": settings.USAR_OLLAMA and ollama_disponible(),
         "openai": bool(settings.OPENAI_API_KEY),
         "anthropic": bool(settings.ANTHROPIC_API_KEY),
         "gemini": bool(settings.GEMINI_API_KEY),
@@ -43,6 +48,16 @@ def proveedores_disponibles() -> dict:
 
 def hay_llm() -> bool:
     return any(proveedores_disponibles().values())
+
+
+def ollama_disponible() -> bool:
+    """True si el servicio Ollama responde en el host configurado."""
+    try:
+        import requests
+        r = requests.get(f"{settings.OLLAMA_HOST}/api/tags", timeout=2)
+        return r.status_code == 200
+    except Exception:
+        return False
 
 
 # --------------------------------------------------------------------------- #
@@ -74,12 +89,21 @@ Incluye los recursos MÍNIMOS razonables aunque la especificación no los detall
 
 def extraer_estructurado(item_descripcion: str, spec: str,
                          item_id: int = 0) -> Optional[InfoTecnica]:
-    """Extracción estructurada con GPT-4o (rol 1). None si no hay OpenAI."""
-    if not settings.OPENAI_API_KEY:
-        return None
-    contenido = _openai_json(
-        _PROMPT_EXTRACCION.format(item=item_descripcion, spec=spec[:8000]),
-        modelo=settings.OPENAI_MODEL)
+    """Extracción estructurada de partidas (rol 1).
+
+    Prioriza el LLM LOCAL GRATIS (Ollama); si no, usa GPT-4o (de pago).
+    Devuelve None si no hay ningún proveedor disponible.
+    """
+    prompt = _PROMPT_EXTRACCION.format(item=item_descripcion, spec=spec[:8000])
+
+    contenido = None
+    # 1) Ollama local (gratis, sin tokens)
+    if settings.USAR_OLLAMA and ollama_disponible():
+        contenido = _ollama_json(prompt, modelo=settings.OLLAMA_MODEL)
+    # 2) GPT-4o (de pago) como alternativa
+    if not contenido and settings.OPENAI_API_KEY:
+        contenido = _openai_json(prompt, modelo=settings.OPENAI_MODEL)
+
     if not contenido:
         return None
     return _json_a_info(contenido, item_id, item_descripcion, spec)
@@ -106,16 +130,17 @@ Devuelve SOLO un JSON: {{"requisitos_normativos": ["..."], "ensayos": ["..."],
 
 
 def interpretar_normativa(item_descripcion: str, spec: str) -> Optional[dict]:
-    """Interpretación normativa con Claude Sonnet (rol 2). None si no hay key."""
-    if not settings.ANTHROPIC_API_KEY:
-        return None
-    contenido = _anthropic_json(
-        _PROMPT_NORMATIVO.format(item=item_descripcion, spec=spec[:8000]),
-        modelo=settings.ANTHROPIC_MODEL)
+    """Interpretación normativa (rol 2): Claude si hay key, si no Ollama local."""
+    prompt = _PROMPT_NORMATIVO.format(item=item_descripcion, spec=spec[:8000])
+    contenido = None
+    if settings.ANTHROPIC_API_KEY:
+        contenido = _anthropic_json(prompt, modelo=settings.ANTHROPIC_MODEL)
+    if not contenido and settings.USAR_OLLAMA and ollama_disponible():
+        contenido = _ollama_json(prompt, modelo=settings.OLLAMA_MODEL)
     if not contenido:
         return None
     try:
-        return json.loads(contenido)
+        return json.loads(_limpiar_json(contenido))
     except json.JSONDecodeError:
         logger.warning("Respuesta normativa no es JSON válido")
         return None
@@ -185,6 +210,25 @@ def extraer_info_inteligente(item_descripcion: str, spec: str,
 # --------------------------------------------------------------------------- #
 # Clientes LLM (perezosos, con manejo de errores)
 # --------------------------------------------------------------------------- #
+def _ollama_json(prompt: str, modelo: str) -> Optional[str]:
+    """Llama a un modelo LOCAL vía Ollama (gratis, sin tokens). Pide JSON."""
+    try:
+        import requests
+    except ImportError:
+        return None
+    try:
+        resp = requests.post(
+            f"{settings.OLLAMA_HOST}/api/generate",
+            json={"model": modelo, "prompt": prompt, "stream": False,
+                  "format": "json", "options": {"temperature": 0.1}},
+            timeout=120)
+        resp.raise_for_status()
+        return resp.json().get("response", "")
+    except Exception:
+        logger.exception("Error llamando a Ollama (%s)", settings.OLLAMA_HOST)
+        return None
+
+
 def _openai_json(prompt: str, modelo: str) -> Optional[str]:
     try:
         from openai import OpenAI
@@ -221,24 +265,34 @@ def _anthropic_json(prompt: str, modelo: str) -> Optional[str]:
         return None
 
 
+def _limpiar_json(contenido: str) -> str:
+    """Quita cercos ```json ... ``` y recorta al primer objeto { ... }."""
+    if not contenido:
+        return ""
+    txt = contenido.strip()
+    if txt.startswith("```"):
+        txt = txt.strip("`")
+        if txt.lstrip().lower().startswith("json"):
+            txt = txt.lstrip()[4:]
+    ini, fin = txt.find("{"), txt.rfind("}")
+    return txt[ini:fin + 1] if ini != -1 and fin != -1 else txt
+
+
 def _json_a_info(contenido: str, item_id: int, item_desc: str,
                  spec: str) -> InfoTecnica:
     """Convierte la respuesta JSON del LLM en InfoTecnica; cae a offline si falla."""
     try:
-        # algunos modelos envuelven el JSON en ```json ... ```
-        limpio = contenido.strip().lstrip("`").replace("json", "", 1) \
-            if contenido.strip().startswith("`") else contenido
-        data = json.loads(limpio)
+        data = json.loads(_limpiar_json(contenido))
         return InfoTecnica(
             item_id=item_id,
-            alcance=data.get("alcance", "")[:500],
+            alcance=str(data.get("alcance", ""))[:500],
             materiales=[str(x) for x in data.get("materiales", [])],
             mano_obra=[str(x) for x in data.get("mano_obra", [])],
             equipo=[str(x) for x in data.get("equipo", [])],
             normas=[str(x) for x in data.get("normas", [])],
             medicion=str(data.get("medicion", "")),
             tiene_especificacion=bool(spec.strip()),
-            resumen="Extraído con IA (GPT-4o)")
-    except (json.JSONDecodeError, AttributeError):
+            resumen="Extraído con IA (LLM)")
+    except (json.JSONDecodeError, AttributeError, TypeError):
         logger.warning("JSON inválido del LLM; usando extractor offline")
         return extraer_info(item_desc, spec, item_id)
