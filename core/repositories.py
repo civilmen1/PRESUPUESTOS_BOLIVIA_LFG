@@ -118,6 +118,30 @@ def obtener_item(item_id: int) -> Optional[Item]:
         return Item(**{k: r[k] for k in r.keys()}) if r else None
 
 
+def borrar_item(item_id: int) -> None:
+    """Elimina un ítem y, por ON DELETE CASCADE, sus recursos/vínculos/resultados."""
+    with db_session() as conn:
+        conn.execute("DELETE FROM items WHERE id=?", (item_id,))
+
+
+def borrar_items(item_ids: list[int]) -> int:
+    """Elimina varios ítems por id. Devuelve la cantidad eliminada."""
+    if not item_ids:
+        return 0
+    marcas = ",".join("?" * len(item_ids))
+    with db_session() as conn:
+        cur = conn.execute(f"DELETE FROM items WHERE id IN ({marcas})",
+                           tuple(item_ids))
+        return cur.rowcount
+
+
+def borrar_todos_items(proyecto_id: int) -> int:
+    """Elimina TODOS los ítems de un proyecto (para reimportar)."""
+    with db_session() as conn:
+        cur = conn.execute("DELETE FROM items WHERE proyecto_id=?", (proyecto_id,))
+        return cur.rowcount
+
+
 # --------------------------------------------------------------------------- #
 # Fuentes y secciones técnicas
 # --------------------------------------------------------------------------- #
@@ -138,6 +162,20 @@ def listar_fuentes(proyecto_id: int) -> List[FuenteTecnica]:
             "SELECT * FROM fuentes_tecnicas WHERE proyecto_id=? ORDER BY id",
             (proyecto_id,)).fetchall()
         return [FuenteTecnica(**{k: r[k] for k in r.keys()}) for r in filas]
+
+
+def borrar_fuente(fuente_id: int) -> None:
+    """Elimina un documento técnico y sus secciones (ON DELETE CASCADE)."""
+    with db_session() as conn:
+        conn.execute("DELETE FROM fuentes_tecnicas WHERE id=?", (fuente_id,))
+
+
+def borrar_todas_fuentes(proyecto_id: int) -> int:
+    """Elimina todos los documentos técnicos de un proyecto."""
+    with db_session() as conn:
+        cur = conn.execute("DELETE FROM fuentes_tecnicas WHERE proyecto_id=?",
+                           (proyecto_id,))
+        return cur.rowcount
 
 
 def crear_seccion(s: SeccionTecnica) -> int:

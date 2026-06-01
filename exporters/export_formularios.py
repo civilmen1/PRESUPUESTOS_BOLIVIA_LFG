@@ -392,82 +392,111 @@ def _b4_equipo(ws, proyecto, items):
 
 # ============================================================ cronograma base
 def _calcular_cronograma(proyecto, items):
-    """Calcula el cronograma base (compartido por A-8, A-9 y B-5).
+    """Calcula el cronograma con SECUENCIA LÓGICA de obra (CPM/Gantt).
 
-    Devuelve (n_periodos, datos) donde datos es una lista por ítem con:
-      {item, periodo (1..n), monto_total}
-    El plazo (proyecto.plazo_dias) define n_periodos = ceil(plazo/30) meses.
-    Cada ítem se asigna a un mes según su posición secuencial en la obra.
+    Usa core.cronograma para clasificar cada ítem en su fase constructiva
+    (replanteo → preparación → estructura de abajo hacia arriba → instalaciones
+    → acabados) y programarlo dentro del plazo contractual.
+
+    Devuelve (n_periodos, datos) donde cada dato tiene:
+      {item, mes_inicio, mes_fin, fase, monto_total}
     """
-    import math
-    plazo = max(int(getattr(proyecto, "plazo_dias", 180) or 180), 30)
-    n_periodos = max(1, math.ceil(plazo / 30))
+    from core.cronograma import construir_cronograma
 
-    reales = [it for it in items if it.descripcion]
-    total_items = max(len(reales), 1)
-    datos = []
-    for idx, it in enumerate(reales):
-        periodo = min(n_periodos, 1 + int(idx * n_periodos / total_items))
+    plazo = int(getattr(proyecto, "plazo_dias", 180) or 180)
+    montos = {}
+    for it in items:
+        if not it.descripcion:
+            continue
         res = repositories.obtener_resultado(it.id)
         pu = res.precio_unitario_total if res else 0.0
-        datos.append({"item": it, "periodo": periodo,
-                      "monto_total": pu * (it.cantidad or 0.0)})
+        montos[it.id] = pu * (it.cantidad or 0.0)
+
+    n_periodos, programadas = construir_cronograma(items, plazo, montos)
+    datos = []
+    for a in programadas:
+        datos.append({"item": a.item, "mes_inicio": a.mes_inicio,
+                      "mes_fin": a.mes_fin, "fase": a.fase,
+                      "monto_total": a.monto})
     return n_periodos, datos
 
 
 def _montos_por_periodo(n_periodos, datos):
-    """Suma el monto de obra ejecutado en cada período (1..n)."""
+    """Distribuye el monto de cada actividad entre sus meses de ejecución."""
     montos = [0.0] * (n_periodos + 1)  # índice 0 sin uso
     for d in datos:
-        montos[d["periodo"]] += d["monto_total"]
+        m_ini = max(1, d.get("mes_inicio", 1))
+        m_fin = max(m_ini, min(d.get("mes_fin", m_ini), n_periodos))
+        span = m_fin - m_ini + 1
+        cuota = d["monto_total"] / span if span else d["monto_total"]
+        for m in range(m_ini, m_fin + 1):
+            montos[m] += cuota
     return montos
 
 
 # ===================================================================== A-8
 def _a8_cronograma_obra(ws, proyecto, items):
     n_periodos, datos = _calcular_cronograma(proyecto, items)
-    ncols = 4 + n_periodos
+    ncols = 5 + n_periodos
     fila = _encabezado(ws, "A-8", "Cronograma de Ejecución de Obra", proyecto, ncols)
-    _set(ws, f"A{fila-1}", f"Plazo de ejecución: {proyecto.plazo_dias} días "
-                           f"calendario ({n_periodos} meses)", _F_NORM, _LEFT)
+    _set(ws, f"A{fila-1}", f"Plazo contractual: {proyecto.plazo_dias} días "
+                           f"calendario ({n_periodos} meses). Secuencia lógica "
+                           f"(replanteo → preparación → estructura → instalaciones "
+                           f"→ acabados), barras tipo Gantt (CPM).", _F_NORM, _LEFT)
     fila += 1
-    headers = ["N°", "Ítem / Actividad", "Unidad", "Cantidad"] + \
+    headers = ["N°", "Ítem / Actividad", "Fase", "Unidad", "Cantidad"] + \
               [f"Mes {i}" for i in range(1, n_periodos + 1)]
-    anchos = [6, 38, 9, 11] + [8] * n_periodos
+    anchos = [6, 34, 18, 8, 10] + [7] * n_periodos
     _fila_headers(ws, fila, headers, anchos)
     fila += 1
+    ini_texto = fila
+    fill_barra = PatternFill("solid", fgColor="9DC3E6")
     for d in datos:
         it = d["item"]
         _set(ws, f"A{fila}", it.numero, _F_NORM, _CENTER)
         _set(ws, f"B{fila}", it.descripcion, _F_NORM, _LEFT)
-        _set(ws, f"C{fila}", it.unidad, _F_NORM, _CENTER)
-        _set(ws, f"D{fila}", it.cantidad, _F_NORM, _RIGHT, fmt="#,##0.00")
+        _set(ws, f"C{fila}", d["fase"], _F_NORM, _LEFT)
+        _set(ws, f"D{fila}", it.unidad, _F_NORM, _CENTER)
+        _set(ws, f"E{fila}", it.cantidad, _F_NORM, _RIGHT, fmt=_FMT_MONTO)
+        m_ini, m_fin = d["mes_inicio"], d["mes_fin"]
         for m in range(1, n_periodos + 1):
-            col = get_column_letter(4 + m)
-            _set(ws, f"{col}{fila}", "■" if m == d["periodo"] else "", _F_NORM,
-                 _CENTER)
-            ws[f"{col}{fila}"].border = _BORDE
-        for c in "ABCD":
+            col = get_column_letter(5 + m)
+            en_barra = m_ini <= m <= m_fin
+            c = _set(ws, f"{col}{fila}", "■" if en_barra else "", _F_NORM, _CENTER)
+            if en_barra:
+                c.fill = fill_barra
+            c.border = _BORDE
+        for c in "ABCDE":
             ws[f"{c}{fila}"].border = _BORDE
         fila += 1
 
-    # Fila de avance valorado y % por período
+    # Fila de avance valorado y % por período + acumulado
     montos = _montos_por_periodo(n_periodos, datos)
     total = sum(montos)
     _set(ws, f"A{fila}", "AVANCE VALORADO (Bs)", _F_BOLD, _RIGHT, _FILL_GRIS)
-    ws.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=4)
+    ws.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=5)
     for m in range(1, n_periodos + 1):
-        col = get_column_letter(4 + m)
+        col = get_column_letter(5 + m)
         _set(ws, f"{col}{fila}", round(montos[m], 2), _F_BOLD, _RIGHT, _FILL_GRIS,
              "#,##0")
     fila += 1
-    _set(ws, f"A{fila}", "AVANCE (%)", _F_BOLD, _RIGHT, _FILL_GRIS)
-    ws.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=4)
+    _set(ws, f"A{fila}", "AVANCE PARCIAL (%)", _F_BOLD, _RIGHT, _FILL_GRIS)
+    ws.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=5)
+    acum = 0.0
+    fila_acum = fila + 1
     for m in range(1, n_periodos + 1):
-        col = get_column_letter(4 + m)
+        col = get_column_letter(5 + m)
         pct = (montos[m] / total * 100) if total else 0.0
         _set(ws, f"{col}{fila}", round(pct, 1), _F_BOLD, _RIGHT, _FILL_GRIS, "0.0")
+    fila += 1
+    _set(ws, f"A{fila}", "AVANCE ACUMULADO (%)", _F_BOLD, _RIGHT, _FILL_GRIS)
+    ws.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=5)
+    for m in range(1, n_periodos + 1):
+        col = get_column_letter(5 + m)
+        acum += (montos[m] / total * 100) if total else 0.0
+        _set(ws, f"{col}{fila}", round(acum, 1), _F_BOLD, _RIGHT, _FILL_GRIS, "0.0")
     fila += 2
+    _autoalto_filas(ws, ini_texto, ini_texto + len(datos), "B", 34)
     _config_pagina(ws, ncols)
     _pie_firma(ws, fila, proyecto, ncols)
 
@@ -486,17 +515,18 @@ def _a9_movilizacion(ws, proyecto, items):
     _fila_headers(ws, fila, headers, anchos)
     fila += 1
 
-    # Para cada equipo (del B-2), determinar en qué meses se usa: los meses de
-    # los ítems que contienen ese equipo.
-    periodo_por_item = {d["item"].id: d["periodo"] for d in datos}
+    # Para cada equipo (del B-2), determinar en qué meses se usa según el A-8:
+    # el rango de meses de TODAS las actividades que usan ese equipo.
+    meses_por_item = {d["item"].id: (d["mes_inicio"], d["mes_fin"]) for d in datos}
     equipos: dict[str, set] = {}
     for it in items:
         for r in repositories.listar_recursos(it.id):
             if r.tipo == TIPO_EQUIPO:
                 k = r.descripcion.strip()
                 equipos.setdefault(k, set())
-                if it.id in periodo_por_item:
-                    equipos[k].add(periodo_por_item[it.id])
+                if it.id in meses_por_item:
+                    mi, mf = meses_por_item[it.id]
+                    equipos[k].update(range(mi, mf + 1))
 
     if not equipos:
         ws.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=ncols)
@@ -507,6 +537,7 @@ def _a9_movilizacion(ws, proyecto, items):
         _pie_firma(ws, fila, proyecto, ncols)
         return
 
+    fill_barra = PatternFill("solid", fgColor="C6E0B4")
     for i, (nombre, meses) in enumerate(sorted(equipos.items()), 1):
         _set(ws, f"A{fila}", i, _F_NORM, _CENTER)
         _set(ws, f"B{fila}", nombre, _F_NORM, _LEFT)
@@ -514,9 +545,11 @@ def _a9_movilizacion(ws, proyecto, items):
         m_ini, m_fin = (min(meses), max(meses)) if meses else (1, 1)
         for m in range(1, n_periodos + 1):
             col = get_column_letter(2 + m)
-            marca = "■" if m_ini <= m <= m_fin else ""
-            _set(ws, f"{col}{fila}", marca, _F_NORM, _CENTER)
-            ws[f"{col}{fila}"].border = _BORDE
+            en_barra = m_ini <= m <= m_fin
+            c = _set(ws, f"{col}{fila}", "■" if en_barra else "", _F_NORM, _CENTER)
+            if en_barra:
+                c.fill = fill_barra
+            c.border = _BORDE
         for c in ("A", "B"):
             ws[f"{c}{fila}"].border = _BORDE
         fila += 1

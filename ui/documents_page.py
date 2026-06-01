@@ -45,11 +45,25 @@ def render(proyecto):
         return
 
     secciones = repositories.listar_secciones(proyecto.id)
-    st.subheader(f"Documentos cargados ({len(fuentes)}) · Secciones: {len(secciones)}")
+    col_a, col_b = st.columns([3, 1])
+    col_a.subheader(f"Documentos cargados ({len(fuentes)}) · "
+                    f"Secciones: {len(secciones)}")
+    if col_b.button("🧹 Eliminar TODOS", use_container_width=True):
+        n = repositories.borrar_todas_fuentes(proyecto.id)
+        st.success(f"{n} documento(s) eliminado(s).")
+        st.rerun()
+
     for f in fuentes:
         with st.expander(f"📑 {f.nombre_archivo}  ·  {f.tipo_documento}"):
             secs = [s for s in secciones if s.fuente_id == f.id]
-            st.caption(f"{len(secs)} secciones · {len(f.texto_extraido or '')} caracteres")
+            cc1, cc2 = st.columns([3, 1])
+            cc1.caption(f"{len(secs)} secciones · "
+                        f"{len(f.texto_extraido or '')} caracteres")
+            if cc2.button("🗑 Eliminar documento", key=f"del_{f.id}",
+                          use_container_width=True):
+                repositories.borrar_fuente(f.id)
+                st.success(f"Documento '{f.nombre_archivo}' eliminado.")
+                st.rerun()
             busqueda = st.text_input("🔎 Buscar en el documento", key=f"buscar_{f.id}")
             for s in secs:
                 if busqueda and busqueda.lower() not in (s.contenido or "").lower():

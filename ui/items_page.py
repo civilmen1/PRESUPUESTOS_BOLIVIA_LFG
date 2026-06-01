@@ -90,14 +90,21 @@ def render(proyecto):
         if not items:
             st.info("Aún no hay ítems. Importa un archivo o ingrésalos manualmente.")
             return
+
+        st.caption(f"{len(items)} ítems. Marca la casilla **🗑 Borrar** de las filas "
+                   "a eliminar y pulsa «Borrar seleccionados», o vacía toda la "
+                   "tabla para reimportar.")
         df = pd.DataFrame([{
+            "🗑 Borrar": False,
             "id": it.id, "N°": it.numero, "Código": it.codigo,
             "Descripción": it.descripcion, "Unidad": it.unidad,
             "Cantidad": it.cantidad, "Estado": it.estado,
             "Observaciones": it.observaciones} for it in items])
         edit = st.data_editor(df, use_container_width=True, num_rows="fixed",
                               disabled=["id", "Estado"], key="editor_items")
-        if st.button("💾 Guardar cambios"):
+
+        c1, c2, c3 = st.columns([1, 1, 1])
+        if c1.button("💾 Guardar cambios", use_container_width=True):
             for _, fila in edit.iterrows():
                 it = repositories.obtener_item(int(fila["id"]))
                 if it:
@@ -109,4 +116,19 @@ def render(proyecto):
                     it.observaciones = str(fila["Observaciones"])
                     repositories.actualizar_item(it)
             st.success("Cambios guardados.")
+            st.rerun()
+
+        seleccionados = [int(f["id"]) for _, f in edit.iterrows() if f["🗑 Borrar"]]
+        if c2.button(f"🗑 Borrar seleccionados ({len(seleccionados)})",
+                     use_container_width=True, disabled=not seleccionados):
+            n = repositories.borrar_items(seleccionados)
+            st.success(f"{n} ítem(s) eliminado(s).")
+            st.rerun()
+
+        # Borrar todo (con confirmación)
+        confirmar = c3.checkbox("Confirmar vaciar tabla")
+        if c3.button("🧹 Borrar TODO e reimportar", use_container_width=True,
+                     disabled=not confirmar):
+            n = repositories.borrar_todos_items(proyecto.id)
+            st.success(f"Se eliminaron los {n} ítems. Ya puedes reimportar.")
             st.rerun()

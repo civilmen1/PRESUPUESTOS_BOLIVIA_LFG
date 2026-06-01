@@ -48,7 +48,14 @@ def _seleccionar_plantilla(item: Item, texto_extra: str = "") -> dict:
 
 
 def inferir_recursos(item: Item, texto_extra: str = "") -> List[RecursoAPU]:
-    """Devuelve la lista de recursos sugeridos para un ítem (sin precio)."""
+    """Devuelve la lista de recursos sugeridos para un ítem (sin precio).
+
+    Garantiza que TODA actividad tenga, como mínimo, sus tres componentes:
+    material, mano de obra y equipo/herramienta. Si la plantilla o las
+    especificaciones técnicas no los mencionan, se analiza el contexto del
+    ítem (descripción + texto técnico) para adicionar lo que corresponde como
+    mínimo, dejándolo marcado para revisión del ingeniero.
+    """
     plantilla = _seleccionar_plantilla(item, texto_extra)
     recursos: List[RecursoAPU] = []
     for r in plantilla.get("recursos", []):
@@ -61,9 +68,61 @@ def inferir_recursos(item: Item, texto_extra: str = "") -> List[RecursoAPU]:
             cantidad_apu=float(r.get("cantidad_apu", 1.0)),
             fuente_precio="sin_precio",
         ))
-        # adjuntamos la categoría sugerida para la cotización
         recursos[-1]._categoria = r.get("categoria", "")
+
+    return _garantizar_minimos(item, recursos, texto_extra)
+
+
+def _garantizar_minimos(item: Item, recursos: List[RecursoAPU],
+                        texto_extra: str = "") -> List[RecursoAPU]:
+    """Asegura que existan los 3 grupos clave; adiciona mínimos si faltan."""
+    presentes = {r.tipo for r in recursos}
+    contexto = normalizar(f"{item.descripcion} {item.palabras_clave} {texto_extra}")
+    fase, _orden = _clasificar_fase_segura(item.descripcion)
+
+    def _add(tipo, descripcion, unidad, cantidad, categoria, nota):
+        nuevo = RecursoAPU(
+            item_id=item.id, tipo=tipo, descripcion=descripcion, unidad=unidad,
+            rendimiento=cantidad, cantidad_apu=cantidad, fuente_precio="sin_precio")
+        nuevo._categoria = categoria
+        nuevo._auto_minimo = nota  # marca para revisión del ingeniero
+        recursos.append(nuevo)
+
+    # --- MANO DE OBRA mínima (toda actividad requiere personal) ---
+    if TIPO_MANO_OBRA not in presentes:
+        if any(k in contexto for k in ("electric", "cable", "luminaria")):
+            _add(TIPO_MANO_OBRA, "Electricista", "jornal", 0.1, "electricista",
+                 "Personal mínimo inferido del contexto")
+        elif any(k in contexto for k in ("tuberia", "sanitaria", "agua", "gas")):
+            _add(TIPO_MANO_OBRA, "Plomero", "jornal", 0.1, "plomero",
+                 "Personal mínimo inferido del contexto")
+        else:
+            _add(TIPO_MANO_OBRA, "Albañil", "jornal", 0.2, "albañil",
+                 "Personal mínimo inferido del contexto")
+        _add(TIPO_MANO_OBRA, "Ayudante", "jornal", 0.2, "ayudante",
+             "Personal mínimo inferido del contexto")
+
+    # --- EQUIPO / HERRAMIENTA mínima ---
+    if TIPO_EQUIPO not in presentes:
+        _add(TIPO_EQUIPO, "Herramientas menores", "porcentaje", 0.05,
+             "herramienta_menor", "Equipo mínimo inferido (5% de mano de obra)")
+
+    # --- MATERIAL mínimo (si la actividad lo amerita) ---
+    if TIPO_MATERIAL not in presentes and fase not in ("Trabajos preliminares",
+                                                       "Movimiento de tierras"):
+        _add(TIPO_MATERIAL, "Material principal (definir según especificación)",
+             "glb", 1.0, "otros",
+             "Material mínimo a definir: la especificación no lo detalla")
+
     return recursos
+
+
+def _clasificar_fase_segura(descripcion: str):
+    try:
+        from core.cronograma import clasificar_fase
+        return clasificar_fase(descripcion)
+    except Exception:
+        return "Obra gruesa / estructura", 2
 
 
 # --------------------------------------------------------------------------- #
@@ -124,6 +183,8 @@ def calcular_resultado(item: Item, recursos: List[RecursoAPU],
         alertas.append("Hay recursos sin precio asignado")
     if any(r.fuente_precio == "email" for r in recursos):
         alertas.append("Hay recursos con cotización por email pendiente")
+    if any(getattr(r, "_auto_minimo", "") for r in recursos):
+        alertas.append("Se adicionaron recursos mínimos por contexto (revisar)")
     if d.costo_directo == 0:
         alertas.append("Costo directo en cero: revisar recursos y precios")
 
