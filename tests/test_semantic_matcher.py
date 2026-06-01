@@ -47,3 +47,40 @@ def test_sin_coincidencia_devuelve_vacio_o_bajo():
     item = Item(id=12, descripcion="Instalación de paneles solares fotovoltaicos")
     resultados = matcher.buscar(item, top_k=3, umbral=0.3)
     assert all(r.score_confianza >= 0.3 for r in resultados)
+
+
+def test_busqueda_jerarquica_con_modulo():
+    secs = [
+        SeccionTecnica(id=1, titulo="MODULO 2 OBRA GRUESA",
+                       contenido="Estructura de hormigón armado y mampostería."),
+        SeccionTecnica(id=2, titulo="2.1 Hormigón armado",
+                       contenido="Hormigón H21 con acero corrugado para zapatas."),
+        SeccionTecnica(id=3, titulo="MODULO 4 ACABADOS",
+                       contenido="Pintura y revestimientos."),
+    ]
+    m = SemanticMatcher(secs)
+    it = Item(id=10, numero="2.1", descripcion="Hormigón armado para zapatas")
+    res = m.buscar(it, top_k=2, modulo_nombre="OBRA GRUESA")
+    assert res and res[0].seccion_id == 2
+
+
+def test_detectar_modulo():
+    secs = [
+        SeccionTecnica(id=1, titulo="MODULO 2 OBRA GRUESA", contenido="..."),
+        SeccionTecnica(id=2, titulo="MODULO 4 ACABADOS", contenido="..."),
+    ]
+    m = SemanticMatcher(secs)
+    assert m.detectar_modulo("ACABADOS") == 1
+    assert m.detectar_modulo("OBRA GRUESA") == 0
+
+
+def test_modulos_no_se_vinculan():
+    from core.semantic_matcher import vincular_items
+    secs = _secciones()
+    items = [
+        Item(id=1, descripcion="MODULO 1 OBRAS", unidad="", cantidad=0),  # módulo
+        Item(id=2, descripcion="Pintura látex muros", unidad="m2", cantidad=10),
+    ]
+    out = vincular_items(items, secs)
+    assert 1 not in out      # el módulo no se vincula
+    assert 2 in out          # el ítem real sí

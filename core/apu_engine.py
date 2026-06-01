@@ -199,7 +199,17 @@ def calcular_resultado(item: Item, recursos: List[RecursoAPU],
 def generar_apu_item(item: Item, proyecto: Proyecto, texto_extra: str = "",
                      permitir_web: bool = True, permitir_email: bool = False,
                      persistir: bool = True) -> ResultadoAPU:
-    """Flujo completo de APU para un ítem: inferir, cotizar, calcular y persistir."""
+    """Flujo completo de APU para un ítem: inferir, cotizar, calcular y persistir.
+
+    Los MÓDULOS (filas sin unidad ni cantidad) solo agrupan ítems y NO requieren
+    análisis de precios unitarios: se omiten."""
+    if item.es_modulo:
+        logger.info("Ítem '%s' es un módulo; se omite el APU", item.descripcion[:40])
+        if persistir:
+            item.estado = "modulo"
+            repositories.actualizar_item(item)
+        return ResultadoAPU(item_id=item.id, alertas=["Módulo (sin APU)"])
+
     if persistir:
         repositories.borrar_recursos_item(item.id)
 

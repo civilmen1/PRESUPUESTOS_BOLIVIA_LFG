@@ -77,6 +77,16 @@ def obtener_o_crear_modulo(proyecto_id: int, nombre: str) -> Optional[int]:
         return cur.lastrowid
 
 
+def nombres_modulos_de_items(proyecto_id: int) -> dict:
+    """Devuelve {item_id: nombre_modulo} para todos los ítems de un proyecto."""
+    with db_session() as conn:
+        filas = conn.execute(
+            """SELECT i.id AS item_id, m.nombre AS modulo
+               FROM items i LEFT JOIN modulos m ON i.modulo_id = m.id
+               WHERE i.proyecto_id = ?""", (proyecto_id,)).fetchall()
+        return {r["item_id"]: (r["modulo"] or "") for r in filas}
+
+
 # --------------------------------------------------------------------------- #
 # Ítems
 # --------------------------------------------------------------------------- #

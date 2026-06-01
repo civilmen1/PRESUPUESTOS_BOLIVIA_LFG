@@ -15,6 +15,7 @@ def render(proyecto):
 
     items = repositories.listar_items(proyecto.id)
     secciones = repositories.listar_secciones(proyecto.id)
+    modulos = repositories.nombres_modulos_de_items(proyecto.id)
     if not items:
         st.info("Carga ítems primero.")
         return
@@ -22,20 +23,32 @@ def render(proyecto):
         st.info("Carga documentos técnicos primero para poder vincular.")
         return
 
+    # Los módulos solo agrupan: no se vinculan ni se analizan.
+    items_reales = [it for it in items if not it.es_modulo]
+
+    st.caption("🔎 Búsqueda jerárquica tipo IA: 1) localiza el **módulo** del "
+               "ítem en el documento, 2) busca la **especificación del ítem** "
+               "dentro de ese módulo. Los módulos solo agrupan y no se vinculan.")
     col1, col2 = st.columns([1, 1])
     top_k = col1.slider("Coincidencias por ítem", 1, 5, 3)
-    if col2.button("⚙️ Ejecutar vinculación semántica", type="primary"):
+    if col2.button("⚙️ Ejecutar vinculación inteligente", type="primary"):
         matcher = SemanticMatcher(secciones)
-        with st.spinner("Calculando similitud..."):
-            for it in items:
+        with st.spinner("Buscando módulo y especificación de cada ítem..."):
+            for it in items_reales:
                 repositories.borrar_vinculos_item(it.id)
-                for v in matcher.buscar(it, top_k=top_k):
+                for v in matcher.buscar(it, top_k=top_k,
+                                        modulo_nombre=modulos.get(it.id, "")):
                     repositories.guardar_vinculo(v)
         st.success("Vinculación completada.")
         st.rerun()
 
     st.divider()
-    for it in items:
+    modulo_actual = None
+    for it in items_reales:
+        mod = modulos.get(it.id, "")
+        if mod and mod != modulo_actual:
+            modulo_actual = mod
+            st.markdown(f"### 📁 {mod}")
         vinculos = repositories.listar_vinculos(it.id)
         encabezado = f"{it.numero or ''} {it.descripcion[:60]}"
         validados = sum(1 for v in vinculos if v.validado_manual)

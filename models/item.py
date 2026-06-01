@@ -22,3 +22,10 @@ class Item:
     @property
     def keywords(self) -> list[str]:
         return [k.strip() for k in (self.palabras_clave or "").split(",") if k.strip()]
+
+    @property
+    def es_modulo(self) -> bool:
+        """Un ítem es un MÓDULO (encabezado que engloba) cuando no tiene unidad
+        ni cantidad: solo agrupa a los ítems que vienen debajo y NO requiere
+        análisis de precios unitarios."""
+        return (not (self.unidad or "").strip()) and (self.cantidad or 0) == 0
