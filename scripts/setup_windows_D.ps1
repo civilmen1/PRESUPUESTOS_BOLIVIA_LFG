@@ -1,13 +1,14 @@
 # =============================================================================
-#  APU Bolivia Generator — Instalacion en la unidad D: (PCs con 8 GB de RAM)
+#  APU Bolivia Generator — Instalacion COMPLETA en la unidad D: (8 GB de RAM)
 #
 #  Que hace este script:
 #   1. Crea las carpetas de trabajo en D:\APU_Bolivia (codigo, venv, datos).
 #   2. Crea un entorno virtual de Python en D: (no usa el disco C).
 #   3. Instala las dependencias del proyecto.
-#   4. Configura Ollama para guardar los modelos en D: (variable OLLAMA_MODELS).
-#   5. Descarga un modelo LLM liviano (qwen2.5:3b) apto para 8 GB de RAM.
-#   6. Crea el archivo .env con el LLM local activado.
+#   4. Instala OLLAMA (el ejecutable) en D:\APU_Bolivia\Ollama  -> TODO en D:
+#   5. Configura Ollama para guardar los modelos en D: (OLLAMA_MODELS).
+#   6. Descarga un modelo LLM liviano (qwen2.5:3b) apto para 8 GB de RAM.
+#   7. Crea el archivo .env con el LLM local activado.
 #
 #  Como ejecutar (PowerShell, desde la carpeta del proyecto):
 #     powershell -ExecutionPolicy Bypass -File scripts\setup_windows_D.ps1
@@ -19,9 +20,10 @@ $ErrorActionPreference = "Stop"
 $Unidad      = "D:"
 $BaseDir     = "$Unidad\APU_Bolivia"
 $VenvDir     = "$BaseDir\venv"
-$ModelosDir  = "$BaseDir\ollama_models"
-$ModeloLLM   = "qwen2.5:3b"     # liviano para 8 GB RAM
-$ProyectoDir = (Get-Location).Path   # carpeta actual del proyecto
+$OllamaDir   = "$BaseDir\Ollama"          # ejecutable de Ollama en D:
+$ModelosDir  = "$BaseDir\ollama_models"   # modelos de Ollama en D:
+$ModeloLLM   = "qwen2.5:3b"               # liviano para 8 GB RAM
+$ProyectoDir = (Get-Location).Path        # carpeta actual del proyecto
 
 Write-Host "==============================================" -ForegroundColor Cyan
 Write-Host " APU Bolivia Generator - Instalacion en $Unidad" -ForegroundColor Cyan
@@ -35,11 +37,11 @@ if (-not (Test-Path $Unidad)) {
 }
 
 # --- 1) Crear carpetas en D: ---
-Write-Host "`n[1/6] Creando carpetas en $BaseDir ..." -ForegroundColor Green
-New-Item -ItemType Directory -Force -Path $BaseDir, $ModelosDir | Out-Null
+Write-Host "`n[1/7] Creando carpetas en $BaseDir ..." -ForegroundColor Green
+New-Item -ItemType Directory -Force -Path $BaseDir, $ModelosDir, $OllamaDir | Out-Null
 
 # --- 2) Verificar Python e instalar venv en D: ---
-Write-Host "`n[2/6] Creando entorno virtual de Python en $VenvDir ..." -ForegroundColor Green
+Write-Host "`n[2/7] Creando entorno virtual de Python en $VenvDir ..." -ForegroundColor Green
 $python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $python) {
     Write-Host "ERROR: Python no esta instalado o no esta en el PATH." -ForegroundColor Red
@@ -52,30 +54,60 @@ if (-not (Test-Path $VenvDir)) {
 $pip = "$VenvDir\Scripts\pip.exe"
 
 # --- 3) Instalar dependencias ---
-Write-Host "`n[3/6] Instalando dependencias (puede tardar varios minutos) ..." -ForegroundColor Green
+Write-Host "`n[3/7] Instalando dependencias (puede tardar varios minutos) ..." -ForegroundColor Green
 & $pip install --upgrade pip --quiet
 & $pip install -r "$ProyectoDir\requirements.txt"
 
-# --- 4) Configurar Ollama para guardar modelos en D: ---
-Write-Host "`n[4/6] Configurando Ollama para usar $ModelosDir ..." -ForegroundColor Green
-# Variable de entorno PERSISTENTE para el usuario (los modelos iran a D:)
-[Environment]::SetEnvironmentVariable("OLLAMA_MODELS", $ModelosDir, "User")
-$env:OLLAMA_MODELS = $ModelosDir   # tambien en la sesion actual
-
-$ollama = Get-Command ollama -ErrorAction SilentlyContinue
-if (-not $ollama) {
-    Write-Host "  AVISO: Ollama no esta instalado todavia." -ForegroundColor Yellow
-    Write-Host "  Instalalo desde https://ollama.com y vuelve a ejecutar este script" -ForegroundColor Yellow
-    Write-Host "  (o solo el paso de descarga del modelo)." -ForegroundColor Yellow
+# --- 4) Instalar Ollama (ejecutable) en D: ---
+Write-Host "`n[4/7] Instalando Ollama en $OllamaDir ..." -ForegroundColor Green
+$ollamaExe = "$OllamaDir\ollama.exe"
+if (Test-Path $ollamaExe) {
+    Write-Host "  Ollama ya esta instalado en D:; se omite la instalacion." -ForegroundColor DarkGray
 } else {
-    # --- 5) Descargar el modelo liviano ---
-    Write-Host "`n[5/6] Descargando modelo LLM liviano '$ModeloLLM' en D: ..." -ForegroundColor Green
-    Write-Host "  (esto descarga ~2 GB la primera vez)" -ForegroundColor DarkGray
-    ollama pull $ModeloLLM
+    $installer = "$env:TEMP\OllamaSetup.exe"
+    Write-Host "  Descargando instalador de Ollama (~700 MB)..." -ForegroundColor DarkGray
+    try {
+        Invoke-WebRequest -Uri "https://ollama.com/download/OllamaSetup.exe" `
+            -OutFile $installer -UseBasicParsing
+        # Instalacion DESATENDIDA con directorio destino en D: (flag /DIR de NSIS)
+        Write-Host "  Instalando en $OllamaDir (silencioso)..." -ForegroundColor DarkGray
+        Start-Process -FilePath $installer -ArgumentList "/VERYSILENT","/DIR=$OllamaDir" -Wait
+        Remove-Item $installer -ErrorAction SilentlyContinue
+    } catch {
+        Write-Host "  No se pudo instalar Ollama automaticamente: $_" -ForegroundColor Yellow
+        Write-Host "  Instalalo manualmente desde https://ollama.com en $OllamaDir" -ForegroundColor Yellow
+    }
 }
 
-# --- 6) Crear archivo .env con el LLM local activado ---
-Write-Host "`n[6/6] Creando archivo .env ..." -ForegroundColor Green
+# --- 5) Configurar Ollama para guardar modelos en D: ---
+Write-Host "`n[5/7] Configurando Ollama para usar $ModelosDir ..." -ForegroundColor Green
+# Variables PERSISTENTES para el usuario (modelos en D: y ejecutable en PATH)
+[Environment]::SetEnvironmentVariable("OLLAMA_MODELS", $ModelosDir, "User")
+$env:OLLAMA_MODELS = $ModelosDir   # tambien en la sesion actual
+# Agregar el ejecutable de Ollama (en D:) al PATH de la sesion actual
+if (Test-Path $ollamaExe) { $env:Path = "$OllamaDir;$env:Path" }
+
+# Resolver el comando ollama (en D: o en PATH global)
+$ollamaCmd = if (Test-Path $ollamaExe) { $ollamaExe }
+             else { (Get-Command ollama -ErrorAction SilentlyContinue).Source }
+
+if (-not $ollamaCmd) {
+    Write-Host "  AVISO: no se encontro el ejecutable de Ollama." -ForegroundColor Yellow
+    Write-Host "  Reinicia PowerShell y ejecuta: ollama pull $ModeloLLM" -ForegroundColor Yellow
+} else {
+    # --- 6) Descargar el modelo liviano (los modelos van a D: por OLLAMA_MODELS) ---
+    Write-Host "`n[6/7] Descargando modelo LLM liviano '$ModeloLLM' en D: ..." -ForegroundColor Green
+    Write-Host "  (esto descarga ~2 GB la primera vez)" -ForegroundColor DarkGray
+    # Arrancar el servidor Ollama si no esta corriendo
+    if (-not (Get-Process -Name "ollama" -ErrorAction SilentlyContinue)) {
+        Start-Process -FilePath $ollamaCmd -ArgumentList "serve" -WindowStyle Hidden
+        Start-Sleep -Seconds 5
+    }
+    & $ollamaCmd pull $ModeloLLM
+}
+
+# --- 7) Crear archivo .env con el LLM local activado ---
+Write-Host "`n[7/7] Creando archivo .env ..." -ForegroundColor Green
 $envPath = "$ProyectoDir\.env"
 if (Test-Path $envPath) {
     Write-Host "  Ya existe .env; no se sobrescribe. Revisa que tenga USAR_OLLAMA=true." -ForegroundColor Yellow
@@ -105,14 +137,16 @@ Write-Host "`n==============================================" -ForegroundColor C
 Write-Host " Instalacion completada." -ForegroundColor Green
 Write-Host "==============================================" -ForegroundColor Cyan
 Write-Host "Entorno virtual : $VenvDir"
+Write-Host "Ollama (exe)    : $OllamaDir"
 Write-Host "Modelos Ollama  : $ModelosDir  (variable OLLAMA_MODELS)"
 Write-Host "Modelo LLM      : $ModeloLLM"
 Write-Host "Datos / BD      : $BaseDir\data"
+Write-Host "==> TODO en la unidad $Unidad (el disco C no se llena)." -ForegroundColor Green
 Write-Host ""
 Write-Host "Para ejecutar la aplicacion:" -ForegroundColor Yellow
 Write-Host "   $VenvDir\Scripts\activate"
 Write-Host "   python -m scripts.init_db"
 Write-Host "   streamlit run app.py"
 Write-Host ""
-Write-Host "IMPORTANTE: si acabas de instalar Ollama, cierra y reabre PowerShell" -ForegroundColor Yellow
-Write-Host "para que tome la variable OLLAMA_MODELS antes de 'ollama pull'." -ForegroundColor Yellow
+Write-Host "NOTA: reinicia PowerShell antes de usar 'ollama' manualmente, para" -ForegroundColor Yellow
+Write-Host "que tome OLLAMA_MODELS y el PATH actualizados." -ForegroundColor Yellow

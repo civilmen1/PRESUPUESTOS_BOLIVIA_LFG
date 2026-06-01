@@ -204,9 +204,10 @@ powershell -ExecutionPolicy Bypass -File scripts\setup_windows_D.ps1
 ```
 
 El script crea el entorno virtual, los datos y la base de datos en
-`D:\APU_Bolivia`, configura **Ollama para guardar los modelos en D:**
-(`OLLAMA_MODELS`), descarga `qwen2.5:3b` y genera el `.env` con el LLM local
-activado. Edita la variable `$Unidad` del script si usas otra letra.
+`D:\APU_Bolivia`, **instala Ollama (el ejecutable) en `D:\APU_Bolivia\Ollama`**,
+configura **los modelos de Ollama en D:** (`OLLAMA_MODELS`), descarga
+`qwen2.5:3b` y genera el `.env` con el LLM local activado. **Todo queda en D:**;
+el disco C no se llena. Edita la variable `$Unidad` del script si usas otra letra.
 
 ### LLMs de pago (opcionales) — arquitectura multi-modelo
 
