@@ -24,6 +24,20 @@ from models.quotation import Cotizacion
 logger = get_logger(__name__)
 
 
+def _extraer_info_item(descripcion: str, spec: str, item_id: int):
+    """Extrae info de la especificación: usa IA si está habilitada, si no offline."""
+    from config import settings
+    if settings.USAR_LLM:
+        try:
+            from core.llm_extractor import extraer_info_inteligente, hay_llm
+            if hay_llm():
+                return extraer_info_inteligente(descripcion, spec, item_id)
+        except Exception:
+            logger.exception("Fallo extractor IA; usando offline")
+    from core.info_extractor import extraer_info
+    return extraer_info(descripcion, spec, item_id)
+
+
 # --------------------------------------------------------------------------- #
 # Inferencia de recursos
 # --------------------------------------------------------------------------- #
@@ -220,8 +234,7 @@ def generar_apu_item(item: Item, proyecto: Proyecto, texto_extra: str = "",
         try:
             spec = repositories.texto_tecnico_item(item.id)
             if spec:
-                from core.info_extractor import extraer_info
-                info = extraer_info(item.descripcion, spec, item.id)
+                info = _extraer_info_item(item.descripcion, spec, item.id)
                 texto_extra = info.como_texto()
         except Exception:
             logger.exception("No se pudo cargar la especificación del ítem %s",

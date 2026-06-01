@@ -118,6 +118,21 @@ REGISTRO_PROVEEDOR_URL = os.getenv(
     "REGISTRO_PROVEEDOR_URL", "https://apubolivia.local/registro-proveedor"
 )
 
+# --------------------------------------------------------------------------- #
+# Extracción con IA / LLM (opcional, multi-modelo). Si no hay key, modo offline.
+#   1. Extracción estructurada → GPT-4o (OpenAI)
+#   2. Interpretación normativa → Claude Sonnet (Anthropic)
+#   3. Análisis de planos/PDF   → Gemini (Google, multimodal)
+# --------------------------------------------------------------------------- #
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-pro-exp")
+# Activa el uso de LLM en la extracción (requiere al menos una API key).
+USAR_LLM = os.getenv("USAR_LLM", "false").lower() in {"1", "true", "yes"}
+
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 APP_NAME = "APU Bolivia Generator"
 APP_VERSION = "0.1.0"

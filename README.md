@@ -163,14 +163,39 @@ pytest -q
 - **Backend desacoplado:** la lógica de `core/` y `providers/` es independiente
   de la UI y puede exponerse con **FastAPI**.
 
+## 8.b Lectura de documentos con OCR e IA (opcional)
+
+**OCR para DBCs escaneados** (`core/parser_documento.py`): si un PDF es una
+imagen (escaneo) o subes un PNG/JPG/TIFF, el sistema aplica **OCR con
+Tesseract** automáticamente. Requiere instalar los binarios del sistema:
+
+- Windows: Tesseract (https://github.com/UB-Mannheim/tesseract/wiki) + Poppler.
+- Paquete de idioma español (`spa`) recomendado.
+- Sin Tesseract instalado, el OCR se omite sin romper la app.
+
+**Extracción con IA / LLM** (`core/llm_extractor.py`, opcional): arquitectura
+multi-modelo, cada uno en su rol óptimo. Se activa con `USAR_LLM=true` y al
+menos una API key; si no, usa el extractor offline por reglas.
+
+| Rol | Modelo | Tarea |
+|-----|--------|-------|
+| 1. Extracción estructurada | **GPT-4o** | partidas, cantidades, unidades, recursos |
+| 2. Interpretación normativa | **Claude Sonnet** | NB-DS 2023, NB 1225001, ACI/ASTM |
+| 3. Análisis de planos/PDF | **Gemini** | multimodal + contexto largo |
+
+Configura en `.env`: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`.
+Instala los SDKs (descomenta en `requirements.txt`): `openai`, `anthropic`,
+`google-generativeai`.
+
 ## 9. Notas sobre componentes mock / sustituibles
 
 - `providers/web_scraper.py` → genera precios **simulados** en `SCRAPER_DRY_RUN`.
   Reemplaza `_simular` / añade parsers por sitio para scraping real.
 - `providers/email_service.py` → en `EMAIL_DRY_RUN` registra contactos sin
   enviar. Configura SMTP/SendGrid en `.env` para envío real.
-- `core/semantic_matcher.py` → TF-IDF + coseno (offline). Puede sustituirse por
-  embeddings (sentence-transformers) sin cambiar la interfaz.
+- `core/semantic_matcher.py` → TF-IDF + coseno (offline). El extractor de
+  información (`core/info_extractor.py`) usa reglas; con `USAR_LLM=true` se
+  sustituye por la extracción multi-LLM sin cambiar la interfaz.
 - `data/*.json` → rendimientos, salarios y equipos son **referenciales**;
   ajústalos a tus bases reales.
 

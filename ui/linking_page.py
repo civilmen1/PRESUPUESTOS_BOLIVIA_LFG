@@ -3,16 +3,44 @@ from __future__ import annotations
 
 import streamlit as st
 
+from config import settings
 from core import repositories
 from core.info_extractor import extraer_info
 from core.semantic_matcher import SemanticMatcher
 from ui.components import requiere_proyecto
 
 
+def _extraer(descripcion, spec, item_id):
+    """Usa el extractor con IA si está habilitado y hay key; si no, el offline."""
+    if settings.USAR_LLM:
+        try:
+            from core.llm_extractor import extraer_info_inteligente, hay_llm
+            if hay_llm():
+                return extraer_info_inteligente(descripcion, spec, item_id)
+        except Exception:
+            pass
+    return extraer_info(descripcion, spec, item_id)
+
+
 def render(proyecto):
     st.title("🔗 Vinculación técnica (ítem ↔ especificación)")
     if not requiere_proyecto(proyecto):
         return
+
+    # Estado del extractor (offline vs IA)
+    if settings.USAR_LLM:
+        try:
+            from core.llm_extractor import proveedores_disponibles
+            disp = proveedores_disponibles()
+            activos = [k for k, v in disp.items() if v]
+            if activos:
+                st.success("🤖 Extracción con IA activa: " + ", ".join(activos)
+                           + " (GPT-4o=partidas · Claude=normativa · Gemini=planos)")
+            else:
+                st.warning("USAR_LLM activo pero sin API keys: usando extractor "
+                           "offline. Configura OPENAI/ANTHROPIC/GEMINI en .env.")
+        except Exception:
+            pass
 
     items = repositories.listar_items(proyecto.id)
     secciones = repositories.listar_secciones(proyecto.id)
@@ -61,7 +89,7 @@ def render(proyecto):
 
             # --- Información técnica EXTRAÍDA del documento para este ítem ---
             spec = repositories.texto_tecnico_item(it.id)
-            info = extraer_info(it.descripcion, spec, it.id)
+            info = _extraer(it.descripcion, spec, it.id)
             st.markdown("**🧠 Información cargada de la especificación:**")
             ca, cb, cc = st.columns(3)
             ca.markdown("**Materiales**")

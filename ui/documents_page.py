@@ -17,8 +17,11 @@ def render(proyecto):
         return
 
     archivos = st.file_uploader(
-        "PDF / DOCX / DOC / TXT", type=["pdf", "docx", "doc", "txt"],
+        "PDF / DOCX / DOC / TXT / Imagen (PNG, JPG, TIFF)",
+        type=["pdf", "docx", "doc", "txt", "png", "jpg", "jpeg", "tiff", "tif", "bmp"],
         accept_multiple_files=True)
+    st.caption("📷 Los PDFs escaneados y las imágenes se leen con OCR "
+               "automáticamente (requiere Tesseract instalado).")
     if archivos and st.button("📥 Procesar documentos", type="primary"):
         for archivo in archivos:
             ruta = settings.UPLOAD_DIR / archivo.name
