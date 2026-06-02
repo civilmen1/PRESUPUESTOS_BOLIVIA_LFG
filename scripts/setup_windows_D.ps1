@@ -1,11 +1,11 @@
 # =============================================================================
 #  APU Bolivia Generator — Instalacion COMPLETA en la unidad D: (8 GB de RAM)
 #
-#  Que hace este script:
-#   1. Crea las carpetas de trabajo en D:\APU_Bolivia (codigo, venv, datos).
-#   2. Crea un entorno virtual de Python en D: (no usa el disco C).
+#  Que hace este script (TODO queda en D:, el disco C no se llena):
+#   1. Crea las carpetas de trabajo en D:\APU_Bolivia.
+#   2. Instala PYTHON en D:\APU_Bolivia\Python y crea el entorno virtual en D:.
 #   3. Instala las dependencias del proyecto.
-#   4. Instala OLLAMA (el ejecutable) en D:\APU_Bolivia\Ollama  -> TODO en D:
+#   4. Instala OLLAMA (el ejecutable) en D:\APU_Bolivia\Ollama.
 #   5. Configura Ollama para guardar los modelos en D: (OLLAMA_MODELS).
 #   6. Descarga un modelo LLM liviano (qwen2.5:3b) apto para 8 GB de RAM.
 #   7. Crea el archivo .env con el LLM local activado.
@@ -19,6 +19,8 @@ $ErrorActionPreference = "Stop"
 # --- Parametros (puedes cambiar la unidad/carpeta) ---
 $Unidad      = "D:"
 $BaseDir     = "$Unidad\APU_Bolivia"
+$PythonDir   = "$BaseDir\Python"          # Python instalado en D:
+$PyVersion   = "3.11.9"                    # version de Python a instalar en D:
 $VenvDir     = "$BaseDir\venv"
 $OllamaDir   = "$BaseDir\Ollama"          # ejecutable de Ollama en D:
 $ModelosDir  = "$BaseDir\ollama_models"   # modelos de Ollama en D:
@@ -38,18 +40,45 @@ if (-not (Test-Path $Unidad)) {
 
 # --- 1) Crear carpetas en D: ---
 Write-Host "`n[1/7] Creando carpetas en $BaseDir ..." -ForegroundColor Green
-New-Item -ItemType Directory -Force -Path $BaseDir, $ModelosDir, $OllamaDir | Out-Null
+New-Item -ItemType Directory -Force -Path $BaseDir, $ModelosDir, $OllamaDir, $PythonDir | Out-Null
 
-# --- 2) Verificar Python e instalar venv en D: ---
-Write-Host "`n[2/7] Creando entorno virtual de Python en $VenvDir ..." -ForegroundColor Green
-$python = Get-Command python -ErrorAction SilentlyContinue
-if (-not $python) {
-    Write-Host "ERROR: Python no esta instalado o no esta en el PATH." -ForegroundColor Red
-    Write-Host "Instala Python 3.11+ desde https://www.python.org (marca 'Add to PATH')." -ForegroundColor Yellow
-    exit 1
+# --- 2) Python en D: (instala una copia en D: si no hay una ya) ---
+Write-Host "`n[2/7] Preparando Python en $PythonDir ..." -ForegroundColor Green
+$pyExe = "$PythonDir\python.exe"
+if (-not (Test-Path $pyExe)) {
+    Write-Host "  Descargando instalador de Python $PyVersion ..." -ForegroundColor DarkGray
+    $pyInstaller = "$env:TEMP\python-$PyVersion-amd64.exe"
+    try {
+        Invoke-WebRequest -UseBasicParsing -OutFile $pyInstaller `
+            -Uri "https://www.python.org/ftp/python/$PyVersion/python-$PyVersion-amd64.exe"
+        # Instalacion silenciosa SOLO en D: (no toca el disco C, sin admin)
+        Write-Host "  Instalando Python en $PythonDir (silencioso)..." -ForegroundColor DarkGray
+        Start-Process -FilePath $pyInstaller -Wait -ArgumentList `
+            "/quiet","InstallAllUsers=0","TargetDir=$PythonDir","Include_pip=1",`
+            "Include_test=0","Include_launcher=0","Shortcuts=0","AssociateFiles=0"
+        Remove-Item $pyInstaller -ErrorAction SilentlyContinue
+    } catch {
+        Write-Host "  No se pudo instalar Python en D: automaticamente: $_" -ForegroundColor Yellow
+    }
 }
+# Si quedo Python en D:, se usa ese; si no, se intenta el del sistema (PATH).
+if (Test-Path $pyExe) {
+    $pythonCmd = $pyExe
+} else {
+    $sys = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $sys) {
+        Write-Host "ERROR: no hay Python en D: ni en el PATH del sistema." -ForegroundColor Red
+        Write-Host "Instala Python 3.11+ desde https://www.python.org y reintenta." -ForegroundColor Yellow
+        exit 1
+    }
+    $pythonCmd = $sys.Source
+    Write-Host "  Usando Python del sistema: $pythonCmd" -ForegroundColor DarkGray
+}
+
+# Crear el entorno virtual en D: con el Python elegido
+Write-Host "  Creando entorno virtual en $VenvDir ..." -ForegroundColor DarkGray
 if (-not (Test-Path $VenvDir)) {
-    python -m venv $VenvDir
+    & $pythonCmd -m venv $VenvDir
 }
 $pip = "$VenvDir\Scripts\pip.exe"
 
@@ -136,6 +165,7 @@ LOG_LEVEL=INFO
 Write-Host "`n==============================================" -ForegroundColor Cyan
 Write-Host " Instalacion completada." -ForegroundColor Green
 Write-Host "==============================================" -ForegroundColor Cyan
+Write-Host "Python          : $PythonDir"
 Write-Host "Entorno virtual : $VenvDir"
 Write-Host "Ollama (exe)    : $OllamaDir"
 Write-Host "Modelos Ollama  : $ModelosDir  (variable OLLAMA_MODELS)"
