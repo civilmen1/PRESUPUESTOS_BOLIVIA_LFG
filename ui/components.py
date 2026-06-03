@@ -27,7 +27,12 @@ def selector_proyecto() -> Proyecto | None:
             region = st.selectbox("Región (departamento)", [
                 "La Paz", "Santa Cruz", "Cochabamba", "Oruro", "Potosí",
                 "Tarija", "Chuquisaca", "Beni", "Pando"])
-            moneda = st.selectbox("Moneda", ["BOB", "USD"])
+            colm1, colm2 = st.columns(2)
+            moneda = colm1.selectbox("Moneda", ["BOB", "USD"],
+                                     help="Bolivianos o Dólares americanos")
+            tipo_cambio = colm2.number_input(
+                "Tipo de cambio (Bs por 1 $us)", 1.0, 100.0, 6.96, 0.01,
+                help="Cotización del dólar. Por defecto 6.96 Bs/$us.")
 
             st.caption("**Representante legal (pie de firma)**")
             rep_legal = st.text_input("Nombre del representante legal")
@@ -61,6 +66,7 @@ def selector_proyecto() -> Proyecto | None:
             if st.form_submit_button("Crear proyecto") and nombre:
                 pid = repositories.crear_proyecto(Proyecto(
                     nombre=nombre, region=region, moneda=moneda,
+                    tipo_cambio=tipo_cambio,
                     entidad=entidad, proponente=proponente,
                     representante_legal=rep_legal, ci_representante=ci_rep,
                     plazo_dias=int(plazo), solicita_anticipo=solicita_ant,

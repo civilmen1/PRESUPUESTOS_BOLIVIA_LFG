@@ -13,6 +13,7 @@ class Proyecto:
     nombre: str = ""
     region: str = ""
     moneda: str = settings.MONEDA_DEFAULT
+    tipo_cambio: float = settings.TIPO_CAMBIO_USD   # BOB por 1 USD
     factor_indirectos: float = settings.FACTOR_INDIRECTOS_DEFAULT
     factor_utilidad: float = settings.FACTOR_UTILIDAD_DEFAULT
     factor_impuestos: float = settings.FACTOR_IMPUESTOS_DEFAULT

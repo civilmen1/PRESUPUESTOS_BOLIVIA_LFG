@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS proyectos (
     nombre TEXT NOT NULL,
     region TEXT,
     moneda TEXT DEFAULT 'BOB',
+    tipo_cambio REAL DEFAULT 6.96,
     factor_indirectos REAL DEFAULT 0.10,
     factor_utilidad REAL DEFAULT 0.10,
     factor_impuestos REAL DEFAULT 0.0,
@@ -235,6 +236,7 @@ def db_session() -> Iterator[sqlite3.Connection]:
 # Columnas añadidas tras la versión inicial -> migración no destructiva.
 _MIGRACIONES = {
     "proyectos": {
+        "tipo_cambio": "REAL DEFAULT 6.96",
         "factor_beneficios_sociales": "REAL DEFAULT 0.55",
         "factor_iva_mano_obra": "REAL DEFAULT 0.1494",
         "factor_herramientas": "REAL DEFAULT 0.05",

@@ -45,6 +45,25 @@ _LEFT = Alignment(horizontal="left", vertical="center", wrap_text=True)
 _FMT_MONTO = "#,##0.00"
 _FMT_CANT = "#,##0.0000"
 
+# Estado de moneda del libro en exportación (se fija en exportar_formularios).
+# Los montos se calculan en BOB; se convierten a la moneda del proyecto al
+# escribir los VALORES de entrada (precios), de modo que las fórmulas vivas de
+# Excel queden internamente consistentes en la moneda mostrada.
+_MONEDA = {"sim": "Bs", "factor": 1.0}
+
+
+def _money(valor_bob: float) -> float:
+    """Convierte un monto en BOB a la moneda activa del libro."""
+    try:
+        return round(float(valor_bob) * _MONEDA["factor"], 2)
+    except (TypeError, ValueError):
+        return valor_bob
+
+
+def _sim() -> str:
+    """Símbolo de la moneda activa (Bs o $us)."""
+    return _MONEDA["sim"]
+
 
 def _set(ws, celda, valor, font=_F_NORM, align=None, fill=None, fmt=None):
     c = ws[celda]
@@ -98,9 +117,11 @@ def _encabezado(ws, codigo: str, titulo: str, proyecto, ncols: int = 6):
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ncols)
     _set(ws, "A2", titulo.upper(), _F_BOLD, _CENTER)
     ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=ncols)
+    tc_txt = (f"   |   T/C: {proyecto.tipo_cambio:.2f} Bs/$us"
+              if proyecto.moneda == "USD" else "")
     _set(ws, "A3", f"Proyecto: {proyecto.nombre}   |   Entidad: "
-                   f"{proyecto.entidad or '—'}   |   Moneda: {proyecto.moneda}",
-         _F_NORM, _CENTER)
+                   f"{proyecto.entidad or '—'}   |   Moneda: {proyecto.moneda}"
+                   f"{tc_txt}", _F_NORM, _CENTER)
     ws.merge_cells(start_row=4, start_column=1, end_row=4, end_column=ncols)
     _set(ws, "A4", f"Proponente: {proyecto.proponente or '—'}   |   "
                    f"Departamento: {proyecto.region or '—'}", _F_NORM, _CENTER)
@@ -117,9 +138,10 @@ def _fila_headers(ws, fila, headers, anchos):
 
 # ===================================================================== B-1
 def _b1_presupuesto(ws, proyecto, items):
+    s = _sim()
     fila = _encabezado(ws, "B-1", "Presupuesto General de la Obra", proyecto, 6)
     _fila_headers(ws, fila, ["N°", "Ítem / Descripción", "Unidad", "Cantidad",
-                             "Precio Unitario (Bs)", "Precio Total (Bs)"],
+                             f"Precio Unitario ({s})", f"Precio Total ({s})"],
                   [6, 50, 10, 12, 16, 18])
     fila += 1
     ini_texto = fila
@@ -142,14 +164,14 @@ def _b1_presupuesto(ws, proyecto, items):
         _set(ws, f"B{fila}", it.descripcion, _F_NORM, _LEFT)
         _set(ws, f"C{fila}", it.unidad, _F_NORM, _CENTER)
         _set(ws, f"D{fila}", it.cantidad, _F_NORM, _RIGHT, fmt=_FMT_MONTO)
-        _set(ws, f"E{fila}", pu, _F_NORM, _RIGHT, fmt=_FMT_MONTO)
+        _set(ws, f"E{fila}", _money(pu), _F_NORM, _RIGHT, fmt=_FMT_MONTO)
         # Precio Total = Cantidad * Precio Unitario (fórmula viva)
         _set(ws, f"F{fila}", f"=D{fila}*E{fila}", _F_NORM, _RIGHT, fmt=_FMT_MONTO)
         _borde_rango(ws, fila, "ABCDEF")
         filas_total.append(fila)
         fila += 1
     ws.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=5)
-    _set(ws, f"A{fila}", "TOTAL GENERAL (Bs)", _F_BOLD, _RIGHT, _FILL_GRIS)
+    _set(ws, f"A{fila}", f"TOTAL GENERAL ({s})", _F_BOLD, _RIGHT, _FILL_GRIS)
     if filas_total:
         suma = "+".join(f"F{f}" for f in filas_total)
         _set(ws, f"F{fila}", f"={suma}", _F_BOLD, _RIGHT, _FILL_GRIS, _FMT_MONTO)
@@ -211,7 +233,7 @@ def _b2_item(ws, proyecto, it, recursos):
         ws.column_dimensions[col].width = w
 
     _fila_headers(ws, fila, ["Descripción", "Unidad", "Cantidad / Rendim.",
-                             "Precio Unit. (Bs)", "Parcial (Bs)"],
+                             f"Precio Unit. ({_sim()})", f"Parcial ({_sim()})"],
                   [46, 10, 13, 15, 16])
     fila += 1
     ini_recursos = fila
@@ -230,7 +252,8 @@ def _b2_item(ws, proyecto, it, recursos):
             _set(ws, f"A{fila}", r.descripcion, _F_NORM, _LEFT)
             _set(ws, f"B{fila}", r.unidad, _F_NORM, _CENTER)
             _set(ws, f"C{fila}", r.cantidad_apu, _F_NORM, _RIGHT, fmt=_FMT_CANT)
-            _set(ws, f"D{fila}", r.precio_unitario, _F_NORM, _RIGHT, fmt=_FMT_MONTO)
+            _set(ws, f"D{fila}", _money(r.precio_unitario), _F_NORM, _RIGHT,
+                 fmt=_FMT_MONTO)
             # Parcial = Cantidad * Precio Unitario (fórmula viva)
             _set(ws, f"E{fila}", f"=C{fila}*D{fila}", _F_NORM, _RIGHT, fmt=_FMT_MONTO)
             _borde_rango(ws, fila, headers_cols)
@@ -301,7 +324,7 @@ def _b2_item(ws, proyecto, it, recursos):
     fila = _linea_formula(ws, fila, f"7. IMPUESTOS IT ({f_it*100:.2f}%)",
                           f"=(E{r_cd}+E{r_gg}+E{r_ut})*{f_it}")
     r_it = fila - 1
-    fila = _linea_formula(ws, fila, "PRECIO UNITARIO TOTAL (Bs)",
+    fila = _linea_formula(ws, fila, f"PRECIO UNITARIO TOTAL ({_sim()})",
                           f"=E{r_cd}+E{r_gg}+E{r_ut}+E{r_it}", negrita=True,
                           fill=True)
 
@@ -325,7 +348,7 @@ def _linea_formula(ws, fila, etiqueta, formula, negrita=False, fill=False):
 def _b3_elementales(ws, proyecto, items):
     fila = _encabezado(ws, "B-3", "Precios Unitarios de Elementales", proyecto, 5)
     _fila_headers(ws, fila, ["Tipo", "Descripción del insumo", "Unidad",
-                             "Precio Unitario (Bs)", "Fuente del precio"],
+                             f"Precio Unitario ({_sim()})", "Fuente del precio"],
                   [14, 46, 10, 16, 20])
     fila += 1
     vistos: dict[tuple, dict] = {}
@@ -344,7 +367,7 @@ def _b3_elementales(ws, proyecto, items):
              _CENTER)
         _set(ws, f"B{fila}", v["desc"], _F_NORM, _LEFT)
         _set(ws, f"C{fila}", v["unidad"], _F_NORM, _CENTER)
-        _set(ws, f"D{fila}", v["precio"], _F_NORM, _RIGHT, fmt=_FMT_MONTO)
+        _set(ws, f"D{fila}", _money(v["precio"]), _F_NORM, _RIGHT, fmt=_FMT_MONTO)
         _set(ws, f"E{fila}", v["fuente"] or "—", _F_NORM, _CENTER)
         _borde_rango(ws, fila, "ABCDE")
         fila += 1
@@ -473,11 +496,11 @@ def _a8_cronograma_obra(ws, proyecto, items):
     # Fila de avance valorado y % por período + acumulado
     montos = _montos_por_periodo(n_periodos, datos)
     total = sum(montos)
-    _set(ws, f"A{fila}", "AVANCE VALORADO (Bs)", _F_BOLD, _RIGHT, _FILL_GRIS)
+    _set(ws, f"A{fila}", f"AVANCE VALORADO ({_sim()})", _F_BOLD, _RIGHT, _FILL_GRIS)
     ws.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=5)
     for m in range(1, n_periodos + 1):
         col = get_column_letter(5 + m)
-        _set(ws, f"{col}{fila}", round(montos[m], 2), _F_BOLD, _RIGHT, _FILL_GRIS,
+        _set(ws, f"{col}{fila}", _money(montos[m]), _F_BOLD, _RIGHT, _FILL_GRIS,
              "#,##0")
     fila += 1
     _set(ws, f"A{fila}", "AVANCE PARCIAL (%)", _F_BOLD, _RIGHT, _FILL_GRIS)
@@ -575,17 +598,18 @@ def _b5_desembolsos(ws, proyecto, items):
                 if proyecto.solicita_anticipo else 0.0)
 
     # Mensaje de anticipo
+    s = _sim()
     if proyecto.solicita_anticipo:
         _set(ws, f"A{fila}", f"Anticipo solicitado: SÍ  ·  "
                              f"{proyecto.porcentaje_anticipo*100:.0f}% = "
-                             f"Bs {anticipo:,.2f}", _F_BOLD, _LEFT)
+                             f"{s} {_money(anticipo):,.2f}", _F_BOLD, _LEFT)
     else:
         _set(ws, f"A{fila}", "Anticipo solicitado: NO", _F_BOLD, _LEFT)
     fila += 2
 
-    _fila_headers(ws, fila, ["Período", "Avance valorado (Bs)",
-                             "Amortización anticipo (Bs)", "Desembolso neto (Bs)",
-                             "Acumulado (Bs)"],
+    _fila_headers(ws, fila, ["Período", f"Avance valorado ({s})",
+                             f"Amortización anticipo ({s})",
+                             f"Desembolso neto ({s})", f"Acumulado ({s})"],
                   [22, 20, 22, 20, 20])
     fila += 1
 
@@ -596,8 +620,8 @@ def _b5_desembolsos(ws, proyecto, items):
         _set(ws, f"A{fila}", "Anticipo (inicio)", _F_BOLD, _LEFT)
         _set(ws, f"B{fila}", 0.0, _F_NORM, _RIGHT, fmt="#,##0.00")
         _set(ws, f"C{fila}", 0.0, _F_NORM, _RIGHT, fmt="#,##0.00")
-        _set(ws, f"D{fila}", anticipo, _F_BOLD, _RIGHT, fmt="#,##0.00")
-        _set(ws, f"E{fila}", acumulado, _F_NORM, _RIGHT, fmt="#,##0.00")
+        _set(ws, f"D{fila}", _money(anticipo), _F_BOLD, _RIGHT, fmt="#,##0.00")
+        _set(ws, f"E{fila}", _money(acumulado), _F_NORM, _RIGHT, fmt="#,##0.00")
         for c in "ABCDE":
             ws[f"{c}{fila}"].border = _BORDE
         fila += 1
@@ -610,21 +634,21 @@ def _b5_desembolsos(ws, proyecto, items):
         desembolso = avance - amort
         acumulado += desembolso
         _set(ws, f"A{fila}", f"Mes {m}", _F_NORM, _LEFT)
-        _set(ws, f"B{fila}", round(avance, 2), _F_NORM, _RIGHT, fmt="#,##0.00")
-        _set(ws, f"C{fila}", round(amort, 2), _F_NORM, _RIGHT, fmt="#,##0.00")
-        _set(ws, f"D{fila}", round(desembolso, 2), _F_NORM, _RIGHT, fmt="#,##0.00")
-        _set(ws, f"E{fila}", round(acumulado, 2), _F_NORM, _RIGHT, fmt="#,##0.00")
+        _set(ws, f"B{fila}", _money(avance), _F_NORM, _RIGHT, fmt="#,##0.00")
+        _set(ws, f"C{fila}", _money(amort), _F_NORM, _RIGHT, fmt="#,##0.00")
+        _set(ws, f"D{fila}", _money(desembolso), _F_NORM, _RIGHT, fmt="#,##0.00")
+        _set(ws, f"E{fila}", _money(acumulado), _F_NORM, _RIGHT, fmt="#,##0.00")
         for c in "ABCDE":
             ws[f"{c}{fila}"].border = _BORDE
         fila += 1
 
     # Totales
     _set(ws, f"A{fila}", "TOTAL", _F_BOLD, _RIGHT, _FILL_GRIS)
-    _set(ws, f"B{fila}", round(total_obra, 2), _F_BOLD, _RIGHT, _FILL_GRIS, "#,##0.00")
-    _set(ws, f"C{fila}", round(anticipo, 2), _F_BOLD, _RIGHT, _FILL_GRIS, "#,##0.00")
-    _set(ws, f"D{fila}", round(total_obra - anticipo, 2), _F_BOLD, _RIGHT,
+    _set(ws, f"B{fila}", _money(total_obra), _F_BOLD, _RIGHT, _FILL_GRIS, "#,##0.00")
+    _set(ws, f"C{fila}", _money(anticipo), _F_BOLD, _RIGHT, _FILL_GRIS, "#,##0.00")
+    _set(ws, f"D{fila}", _money(total_obra - anticipo), _F_BOLD, _RIGHT,
          _FILL_GRIS, "#,##0.00")
-    _set(ws, f"E{fila}", round(acumulado, 2), _F_BOLD, _RIGHT, _FILL_GRIS, "#,##0.00")
+    _set(ws, f"E{fila}", _money(acumulado), _F_BOLD, _RIGHT, _FILL_GRIS, "#,##0.00")
     for c in "ABCDE":
         ws[f"{c}{fila}"].border = _BORDE
     fila += 2
@@ -694,6 +718,15 @@ def exportar_formularios(proyecto_id: int, ruta: str | Path | None = None) -> Pa
     ruta = Path(ruta)
 
     items = repositories.listar_items(proyecto_id)
+
+    # Fijar la moneda del libro: los montos internos están en BOB; si el
+    # proyecto usa USD, se convierten dividiendo por el tipo de cambio.
+    from core import currency
+    if proyecto.moneda == currency.USD:
+        tc = currency.tipo_cambio(proyecto) or 6.96
+        _MONEDA["sim"], _MONEDA["factor"] = "$us", 1.0 / tc
+    else:
+        _MONEDA["sim"], _MONEDA["factor"] = "Bs", 1.0
 
     wb = Workbook()
     wb.remove(wb.active)
