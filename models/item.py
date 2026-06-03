@@ -18,6 +18,8 @@ class Item:
     observaciones: str = ""
     estado: str = "pendiente"
     palabras_clave: str = ""
+    # Validación técnica del "armado" (recursos) antes de cotizar.
+    validado_tecnico: bool = False
 
     @property
     def keywords(self) -> list[str]:

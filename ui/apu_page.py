@@ -4,7 +4,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from core import apu_engine, repositories
+from core import apu_engine, currency, repositories
 from ui.components import badge_nivel, requiere_proyecto
 
 
@@ -18,6 +18,20 @@ def render(proyecto):
         st.info("Carga ítems primero.")
         return
 
+    # Gate de validación técnica: no se cotiza sin validar los ítems.
+    items_reales = [it for it in items if not it.es_modulo]
+    sin_validar = [it for it in items_reales if not it.validado_tecnico]
+    if sin_validar:
+        st.error(f"🔒 Hay {len(sin_validar)} de {len(items_reales)} ítems sin "
+                 "validar técnicamente. Ve a **🔗 Vinculación técnica**, revisa "
+                 "los recursos (material / mano de obra / equipo) de cada ítem y "
+                 "márcalos como validados antes de cotizar y generar precios.")
+        with st.expander("Ver ítems pendientes de validación"):
+            for it in sin_validar:
+                st.write(f"⏳ {it.numero or ''} {it.descripcion}")
+        return
+
+    st.success("✅ Todos los ítems están validados técnicamente.")
     st.subheader("Generación automática (cotizador jerárquico Bolivia)")
     c1, c2, c3 = st.columns(3)
     permitir_web = c1.checkbox("Nivel 2: búsqueda web", value=True)
@@ -26,10 +40,10 @@ def render(proyecto):
 
     if c3.button("⚙️ Generar APUs de todos los ítems", type="primary"):
         prog = st.progress(0.0)
-        for i, it in enumerate(items):
+        for i, it in enumerate(items_reales):
             apu_engine.generar_apu_item(it, proyecto, permitir_web=permitir_web,
                                         permitir_email=permitir_email)
-            prog.progress((i + 1) / len(items))
+            prog.progress((i + 1) / len(items_reales))
         st.success("APUs generados.")
         st.rerun()
 
@@ -38,12 +52,14 @@ def render(proyecto):
         recursos = repositories.listar_recursos(it.id)
         res = repositories.obtener_resultado(it.id)
         total = res.precio_unitario_total if res else 0
+        pu_txt = currency.formatear(total, proyecto.moneda, proyecto)
         with st.expander(f"🧱 {it.numero or ''} {it.descripcion[:55]} — "
-                         f"P.U. {total:,.2f} {proyecto.moneda}"):
+                         f"P.U. {pu_txt}"):
             cga, cgb = st.columns([1, 1])
-            if cga.button("🔄 Regenerar este APU", key=f"regen_{it.id}"):
+            if cga.button("🔄 Recotizar (mantiene recursos)", key=f"regen_{it.id}"):
                 apu_engine.generar_apu_item(it, proyecto, permitir_web=permitir_web,
-                                            permitir_email=permitir_email)
+                                            permitir_email=permitir_email,
+                                            reusar_recursos=True)
                 st.rerun()
 
             if not recursos:
@@ -65,16 +81,20 @@ def render(proyecto):
                 st.rerun()
 
             if res:
+                def _f(v):
+                    return currency.formatear(v, proyecto.moneda, proyecto,
+                                              con_simbolo=False)
+                sim = currency.simbolo(proyecto.moneda)
                 m1, m2, m3, m4 = st.columns(4)
-                m1.metric("Materiales", f"{res.costo_materiales:,.2f}")
-                m2.metric("Mano de obra", f"{res.costo_mano_obra:,.2f}")
-                m3.metric("Equipos", f"{res.costo_equipos:,.2f}")
-                m4.metric("Costo directo", f"{res.costo_directo:,.2f}")
+                m1.metric(f"Materiales ({sim})", _f(res.costo_materiales))
+                m2.metric(f"Mano de obra ({sim})", _f(res.costo_mano_obra))
+                m3.metric(f"Equipos ({sim})", _f(res.costo_equipos))
+                m4.metric(f"Costo directo ({sim})", _f(res.costo_directo))
                 st.markdown(
-                    f"Indirectos: **{res.indirectos:,.2f}** · "
-                    f"Utilidad: **{res.utilidad:,.2f}** · "
-                    f"Impuestos: **{res.impuestos:,.2f}** · "
-                    f"**P.U. Total: {res.precio_unitario_total:,.2f} {proyecto.moneda}**")
+                    f"Indirectos: **{_f(res.indirectos)}** · "
+                    f"Utilidad: **{_f(res.utilidad)}** · "
+                    f"Impuestos: **{_f(res.impuestos)}** · "
+                    f"**P.U. Total: {currency.formatear(res.precio_unitario_total, proyecto.moneda, proyecto)}**")
                 for a in res.alertas:
                     st.warning(a)
                 fuentes = {badge_nivel(_nivel(r.fuente_precio)) for r in recursos}

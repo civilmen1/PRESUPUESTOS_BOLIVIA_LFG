@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from core import repositories
+from core import currency, repositories
 from ui.components import requiere_proyecto
 
 
@@ -25,7 +25,8 @@ def render(proyecto):
             alertas_total += len(res.alertas)
             costo_total += res.precio_unitario_total * it.cantidad
 
-    st.subheader(f"Proyecto: {proyecto.nombre}  ·  {proyecto.region}  ·  {proyecto.moneda}")
+    st.subheader(f"Proyecto: {proyecto.nombre}  ·  {proyecto.region}  ·  "
+                 f"{currency.nombre(proyecto.moneda)}")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Ítems", len(items))
     c2.metric("Documentos técnicos", len(fuentes))
@@ -36,7 +37,9 @@ def render(proyecto):
     cot_vigentes = [c for c in cotizaciones if c.get("estado") == "obtenida"]
     c5.metric("Cotizaciones vigentes", len(cot_vigentes))
     c6.metric("Alertas pendientes", alertas_total)
-    c7.metric(f"Costo total estimado ({proyecto.moneda})", f"{costo_total:,.2f}")
+    c7.metric(f"Costo total estimado ({currency.simbolo(proyecto.moneda)})",
+              currency.formatear(costo_total, proyecto.moneda, proyecto,
+                                 con_simbolo=False))
 
     st.divider()
     st.markdown("""

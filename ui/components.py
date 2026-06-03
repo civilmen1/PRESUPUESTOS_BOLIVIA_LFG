@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from core import repositories
+from core import currency, repositories
 from models.project import Proyecto
 
 
@@ -28,11 +28,13 @@ def selector_proyecto() -> Proyecto | None:
                 "La Paz", "Santa Cruz", "Cochabamba", "Oruro", "Potosí",
                 "Tarija", "Chuquisaca", "Beni", "Pando"])
             colm1, colm2 = st.columns(2)
-            moneda = colm1.selectbox("Moneda", ["BOB", "USD"],
-                                     help="Bolivianos o Dólares americanos")
+            cods = currency.codigos()
+            moneda = colm1.selectbox(
+                "Moneda", cods, format_func=currency.etiqueta,
+                help="Bolivianos, Dólares u otra moneda registrada.")
             tipo_cambio = colm2.number_input(
-                "Tipo de cambio (Bs por 1 $us)", 1.0, 100.0, 6.96, 0.01,
-                help="Cotización del dólar. Por defecto 6.96 Bs/$us.")
+                "Tipo de cambio (Bs por 1 $us)", 1.0, 100000.0, 6.96, 0.01,
+                help="Cotización del dólar en bolivianos. Por defecto 6.96.")
 
             st.caption("**Representante legal (pie de firma)**")
             rep_legal = st.text_input("Nombre del representante legal")
@@ -76,6 +78,23 @@ def selector_proyecto() -> Proyecto | None:
                     factor_utilidad_sabs=ut, factor_it=it))
                 st.session_state["proyecto_id"] = pid
                 st.success(f"Proyecto '{nombre}' creado (id {pid}).")
+                st.rerun()
+
+    with st.sidebar.expander("💱 Monedas"):
+        for m in currency.listar_monedas():
+            st.caption(f"**{m['nombre']}** ({m['simbolo']}) · "
+                       f"{m['por_usd']:g} por 1 $us")
+        st.markdown("**Agregar / actualizar moneda**")
+        with st.form("nueva_moneda", clear_on_submit=True):
+            cod = st.text_input("Código (ej. PEN, ARS)", max_chars=5)
+            nom = st.text_input("Nombre (ej. Soles)")
+            sim = st.text_input("Símbolo (ej. S/)")
+            por_usd = st.number_input("Tipo de cambio respecto al $us "
+                                      "(unidades por 1 dólar)", 0.0001, 1e9,
+                                      1.0, format="%.4f")
+            if st.form_submit_button("Guardar moneda") and cod and nom:
+                currency.agregar_moneda(cod, nom, sim or cod, por_usd)
+                st.success(f"Moneda {cod.upper()} guardada.")
                 st.rerun()
 
     pid = st.session_state.get("proyecto_id")

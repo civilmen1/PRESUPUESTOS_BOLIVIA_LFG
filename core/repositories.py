@@ -108,11 +108,17 @@ def actualizar_item(item: Item) -> None:
     with db_session() as conn:
         conn.execute(
             """UPDATE items SET numero=?, codigo=?, descripcion=?, unidad=?,
-               cantidad=?, observaciones=?, estado=?, palabras_clave=?, modulo_id=?
-               WHERE id=?""",
+               cantidad=?, observaciones=?, estado=?, palabras_clave=?, modulo_id=?,
+               validado_tecnico=? WHERE id=?""",
             (item.numero, item.codigo, item.descripcion, item.unidad, item.cantidad,
              item.observaciones, item.estado, item.palabras_clave, item.modulo_id,
-             item.id))
+             int(item.validado_tecnico), item.id))
+
+
+def set_validacion_tecnica(item_id: int, validado: bool) -> None:
+    with db_session() as conn:
+        conn.execute("UPDATE items SET validado_tecnico=? WHERE id=?",
+                     (int(validado), item_id))
 
 
 def listar_items(proyecto_id: int) -> List[Item]:

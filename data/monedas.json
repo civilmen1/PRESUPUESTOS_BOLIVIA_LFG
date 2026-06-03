@@ -1,0 +1,17 @@
+{
+  "_descripcion": "Monedas disponibles. 'por_usd' = cuántas unidades de esta moneda equivalen a 1 Dólar Americano (USD). Editable: agrega las que necesites.",
+  "monedas": [
+    {
+      "codigo": "BOB",
+      "nombre": "Bolivianos",
+      "simbolo": "Bs",
+      "por_usd": 6.96
+    },
+    {
+      "codigo": "USD",
+      "nombre": "Dólares Americanos",
+      "simbolo": "$us",
+      "por_usd": 1.0
+    }
+  ]
+}

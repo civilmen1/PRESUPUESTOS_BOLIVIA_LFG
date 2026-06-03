@@ -131,6 +131,36 @@ def _garantizar_minimos(item: Item, recursos: List[RecursoAPU],
     return recursos
 
 
+def armar_recursos_desde_analisis(item: Item, persistir: bool = True
+                                  ) -> List[RecursoAPU]:
+    """Construye (y persiste) los recursos del ítem desde el análisis técnico.
+
+    Carga la especificación vinculada, infiere los recursos (materiales, mano de
+    obra en horas, equipo en horas) y los guarda. Es la base de las tablas
+    editables de la página de Vinculación. No respeta recursos bloqueados aquí:
+    se usa para el armado inicial.
+    """
+    spec = ""
+    if item.id:
+        try:
+            spec = repositories.texto_tecnico_item(item.id)
+        except Exception:
+            spec = ""
+    texto_extra = ""
+    if spec:
+        info = _extraer_info_item(item.descripcion, spec, item.id)
+        texto_extra = info.como_texto()
+
+    recursos = inferir_recursos(item, texto_extra)
+    if persistir and item.id:
+        repositories.borrar_recursos_item(item.id)
+        for r in recursos:
+            cat = getattr(r, "_categoria", "")
+            r.id = repositories.guardar_recurso(r)
+            r._categoria = cat
+    return recursos
+
+
 def _clasificar_fase_segura(descripcion: str):
     try:
         from core.cronograma import clasificar_fase
@@ -212,11 +242,17 @@ def calcular_resultado(item: Item, recursos: List[RecursoAPU],
 
 def generar_apu_item(item: Item, proyecto: Proyecto, texto_extra: str = "",
                      permitir_web: bool = True, permitir_email: bool = False,
-                     persistir: bool = True) -> ResultadoAPU:
+                     persistir: bool = True,
+                     reusar_recursos: bool = True) -> ResultadoAPU:
     """Flujo completo de APU para un ítem: inferir, cotizar, calcular y persistir.
 
     Los MÓDULOS (filas sin unidad ni cantidad) solo agrupan ítems y NO requieren
-    análisis de precios unitarios: se omiten."""
+    análisis de precios unitarios: se omiten.
+
+    Si ``reusar_recursos`` y el ítem ya tiene recursos (armados y validados en la
+    página de Vinculación), se RESPETAN tal cual y solo se cotizan; así no se
+    pierde la edición manual del ingeniero.
+    """
     if item.es_modulo:
         logger.info("Ítem '%s' es un módulo; se omite el APU", item.descripcion[:40])
         if persistir:
@@ -224,29 +260,30 @@ def generar_apu_item(item: Item, proyecto: Proyecto, texto_extra: str = "",
             repositories.actualizar_item(item)
         return ResultadoAPU(item_id=item.id, alertas=["Módulo (sin APU)"])
 
-    if persistir:
-        repositories.borrar_recursos_item(item.id)
+    recursos_existentes = repositories.listar_recursos(item.id) if item.id else []
+    usar_existentes = reusar_recursos and bool(recursos_existentes)
 
-    # Carga la especificación técnica vinculada (módulo → ítem) para enriquecer
-    # la inferencia de recursos con el alcance, materiales, mano de obra y equipo
-    # que menciona el documento.
-    if not texto_extra and item.id:
-        try:
-            spec = repositories.texto_tecnico_item(item.id)
-            if spec:
-                info = _extraer_info_item(item.descripcion, spec, item.id)
-                texto_extra = info.como_texto()
-        except Exception:
-            logger.exception("No se pudo cargar la especificación del ítem %s",
-                             item.id)
-
-    recursos = inferir_recursos(item, texto_extra)
-
-    if persistir:
-        for r in recursos:
-            cat = getattr(r, "_categoria", "")
-            r.id = repositories.guardar_recurso(r)
-            r._categoria = cat  # re-adjuntar tras persistir
+    if usar_existentes:
+        recursos = recursos_existentes  # respetar el armado validado
+    else:
+        if persistir:
+            repositories.borrar_recursos_item(item.id)
+        # Carga la especificación técnica vinculada para enriquecer la inferencia.
+        if not texto_extra and item.id:
+            try:
+                spec = repositories.texto_tecnico_item(item.id)
+                if spec:
+                    info = _extraer_info_item(item.descripcion, spec, item.id)
+                    texto_extra = info.como_texto()
+            except Exception:
+                logger.exception("No se pudo cargar la especificación del ítem %s",
+                                 item.id)
+        recursos = inferir_recursos(item, texto_extra)
+        if persistir:
+            for r in recursos:
+                cat = getattr(r, "_categoria", "")
+                r.id = repositories.guardar_recurso(r)
+                r._categoria = cat  # re-adjuntar tras persistir
 
     recursos = cotizar_recursos(recursos, proyecto, permitir_web, permitir_email,
                                 persistir_cotizacion=persistir)

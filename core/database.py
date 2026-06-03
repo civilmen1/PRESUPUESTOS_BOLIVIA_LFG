@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS items (
     observaciones TEXT,
     estado TEXT DEFAULT 'pendiente',
     palabras_clave TEXT,
+    validado_tecnico INTEGER DEFAULT 0,
     FOREIGN KEY (modulo_id) REFERENCES modulos(id) ON DELETE SET NULL,
     FOREIGN KEY (proyecto_id) REFERENCES proyectos(id) ON DELETE CASCADE
 );
@@ -251,6 +252,9 @@ _MIGRACIONES = {
         "plazo_dias": "INTEGER DEFAULT 180",
         "solicita_anticipo": "INTEGER DEFAULT 0",
         "porcentaje_anticipo": "REAL DEFAULT 0.0",
+    },
+    "items": {
+        "validado_tecnico": "INTEGER DEFAULT 0",
     },
 }
 
