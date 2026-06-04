@@ -27,21 +27,23 @@ def render(proyecto):
     if not requiere_proyecto(proyecto):
         return
 
-    # Estado del extractor (offline vs IA)
-    if settings.USAR_LLM:
-        try:
-            from core.llm_extractor import proveedores_disponibles
-            disp = proveedores_disponibles()
-            activos = [k for k, v in disp.items() if v]
-            if activos:
-                st.success(" Extracción con IA activa: " + ", ".join(activos))
-            else:
-                st.warning("USAR_LLM activo pero sin proveedor disponible. Para "
-                           "LLM **local gratis**: instala Ollama, ejecuta "
-                           "`ollama pull llama3.1` y pon USAR_OLLAMA=true en .env. "
-                           "Mientras tanto se usa el extractor offline.")
-        except Exception:
-            pass
+    # Estado del extractor (siempre visible para evitar confusiones).
+    try:
+        from core.llm_extractor import proveedores_disponibles
+        disp = proveedores_disponibles() if settings.USAR_LLM else {}
+        activos = [k for k, v in disp.items() if v]
+        if settings.USAR_LLM and activos:
+            st.success("Generacion de recursos con IA activa (" +
+                       ", ".join(activos) + "). Los recursos se generan segun el "
+                       "contexto de cada item; mano de obra y equipo en horas.")
+        else:
+            st.warning("IA NO activa: se usan plantillas por reglas (resultados "
+                       "genericos). Para activar la IA configura GEMINI_API_KEY y "
+                       "USAR_LLM=true. Estado actual: USAR_LLM=" +
+                       str(settings.USAR_LLM) + ", proveedores=" +
+                       (", ".join(activos) if activos else "ninguno") + ".")
+    except Exception as exc:
+        st.warning(f"No se pudo determinar el estado de la IA: {exc}")
 
     items = repositories.listar_items(proyecto.id)
     secciones = repositories.listar_secciones(proyecto.id)
