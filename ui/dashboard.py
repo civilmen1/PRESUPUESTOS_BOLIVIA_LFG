@@ -8,7 +8,7 @@ from ui.components import requiere_proyecto
 
 
 def render(proyecto):
-    st.title("📊 Dashboard")
+    st.title(" Dashboard")
     if not requiere_proyecto(proyecto):
         return
 
@@ -44,11 +44,11 @@ def render(proyecto):
     st.divider()
     st.markdown("""
 **Flujo recomendado**
-1. **Ítems** → carga la tabla de cantidades (CSV/XLSX) o ingresa manualmente.
-2. **Documentos** → sube DBC / especificaciones / TDR (PDF, DOCX, TXT).
-3. **Vinculación** → revisa y valida los vínculos ítem ↔ especificación.
-4. **APUs** → genera los APU; el **cotizador jerárquico Bolivia** busca precios
-   en **BD → Web → Email** en ese orden.
-5. **Cotizaciones / Proveedores** → revisa fuentes y gestiona proveedores.
-6. **Exportación** → Excel, PDF y JSON con trazabilidad completa.
+1. **Ítems**  carga la tabla de cantidades (CSV/XLSX) o ingresa manualmente.
+2. **Documentos**  sube DBC / especificaciones / TDR (PDF, DOCX, TXT).
+3. **Vinculación**  revisa y valida los vínculos ítem  especificación.
+4. **APUs**  genera los APU; el **cotizador jerárquico Bolivia** busca precios
+   en **BD  Web  Email** en ese orden.
+5. **Cotizaciones / Proveedores**  revisa fuentes y gestiona proveedores.
+6. **Exportación**  Excel, PDF y JSON con trazabilidad completa.
     """)

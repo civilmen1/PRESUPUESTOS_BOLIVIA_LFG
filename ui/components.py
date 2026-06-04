@@ -13,7 +13,7 @@ def selector_proyecto(usuario=None) -> Proyecto | None:
     Todos los proyectos se registran a nombre de la EMPRESA logueada (`usuario`);
     no se pregunta el nombre de la empresa al crear el proyecto.
     """
-    st.sidebar.header("📁 Proyecto")
+    st.sidebar.header(" Proyecto")
     uid = getattr(usuario, "id", None) if usuario else None
     empresa = getattr(usuario, "nombre_empresa", "") if usuario else ""
     proyectos = [p for p in repositories.listar_proyectos()
@@ -26,7 +26,7 @@ def selector_proyecto(usuario=None) -> Proyecto | None:
         seleccion = opciones[clave]
         st.session_state["proyecto_id"] = seleccion
 
-    with st.sidebar.expander("➕ Nuevo proyecto"):
+    with st.sidebar.expander(" Nuevo proyecto"):
         if empresa:
             st.caption(f"Proyecto a nombre de: **{empresa}**")
         with st.form("nuevo_proyecto", clear_on_submit=True):
@@ -89,7 +89,7 @@ def selector_proyecto(usuario=None) -> Proyecto | None:
                 st.success(f"Proyecto '{nombre}' creado (id {pid}).")
                 st.rerun()
 
-    with st.sidebar.expander("💱 Monedas"):
+    with st.sidebar.expander(" Monedas"):
         for m in currency.listar_monedas():
             st.caption(f"**{m['nombre']}** ({m['simbolo']}) · "
                        f"{m['por_usd']:g} por 1 $us")
@@ -112,11 +112,11 @@ def selector_proyecto(usuario=None) -> Proyecto | None:
 
 def requiere_proyecto(proyecto) -> bool:
     if not proyecto:
-        st.info("👉 Crea o selecciona un proyecto en la barra lateral para comenzar.")
+        st.info(" Crea o selecciona un proyecto en la barra lateral para comenzar.")
         return False
     return True
 
 
 def badge_nivel(nivel: int) -> str:
-    return {0: "✍️ Manual", 1: "🗃️ BD Bolivia", 2: "🌐 Web",
-            3: "✉️ Email", -1: "⛔ Sin precio"}.get(nivel, str(nivel))
+    return {0: " Manual", 1: " BD Bolivia", 2: " Web",
+            3: " Email", -1: " Sin precio"}.get(nivel, str(nivel))

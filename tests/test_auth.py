@@ -25,34 +25,34 @@ def test_registro_y_verificacion():
     _reset()
     u = auth.Usuario(perfil="contratista", nombre_empresa="ACME SRL",
                      nit="111", email="a@acme.bo")
-    uid, token = auth.registrar_usuario(u, "secreta")
+    uid, token = auth.registrar_usuario(u, "secreta123")
     assert uid and len(token) == 6
     # login antes de verificar -> falla
-    res, msg = auth.login("a@acme.bo", "secreta")
+    res, msg = auth.login("a@acme.bo", "secreta123")
     assert res is None and "verificar" in msg.lower()
     # verificar y entrar
     assert auth.verificar_email("a@acme.bo", token) is True
-    res, _ = auth.login("a@acme.bo", "secreta")
+    res, _ = auth.login("a@acme.bo", "secreta123")
     assert res is not None and res.nombre_empresa == "ACME SRL"
 
 
 def test_password_incorrecta():
     _reset()
     u = auth.Usuario(nombre_empresa="X", email="x@x.bo")
-    _uid, token = auth.registrar_usuario(u, "buena")
+    _uid, token = auth.registrar_usuario(u, "buena1234")
     auth.verificar_email("x@x.bo", token)
-    res, msg = auth.login("x@x.bo", "mala")
+    res, msg = auth.login("x@x.bo", "mala1234")
     assert res is None and "incorrecta" in msg.lower()
 
 
 def test_email_duplicado():
     _reset()
     u = auth.Usuario(nombre_empresa="X", email="dup@x.bo")
-    auth.registrar_usuario(u, "a")
+    auth.registrar_usuario(u, "clave1234")
     assert auth.email_existe("dup@x.bo")
     try:
         auth.registrar_usuario(auth.Usuario(nombre_empresa="Y", email="dup@x.bo"),
-                               "b")
+                               "clave1234")
         assert False, "debió lanzar ValueError"
     except ValueError:
         pass
@@ -61,7 +61,7 @@ def test_email_duplicado():
 def test_codigo_verificacion_invalido():
     _reset()
     u = auth.Usuario(nombre_empresa="X", email="z@x.bo")
-    auth.registrar_usuario(u, "a")
+    auth.registrar_usuario(u, "clave1234")
     assert auth.verificar_email("z@x.bo", "000000") in (True, False)  # no rompe
     # con token incorrecto explícito
     assert auth.verificar_email("z@x.bo", "999999") is False or True
@@ -85,10 +85,17 @@ def test_registro_proveedor_con_cuenta():
     u = auth.Usuario(perfil="proveedor", nombre_empresa="Ferre SRL",
                      email="f@ferre.bo", encargado_whatsapp="777")
     uid, token = auth.registrar_proveedor_con_cuenta(
-        u, "clave", categoria="ferreteria", materiales="cemento")
+        u, "clave1234", categoria="ferreteria", materiales="cemento")
     assert uid
     auth.verificar_email("f@ferre.bo", token)
-    usr, _ = auth.login("f@ferre.bo", "clave")
+    usr, _ = auth.login("f@ferre.bo", "clave1234")
     assert usr is not None
     assert usr.perfil == "proveedor"
     assert usr.proveedor_id is not None
+
+
+def test_validar_password():
+    assert auth.validar_password("corta1")[0] is False        # < 8
+    assert auth.validar_password("sololetras")[0] is False    # sin número
+    assert auth.validar_password("12345678")[0] is False      # sin letra
+    assert auth.validar_password("clave1234")[0] is True      # ok

@@ -64,37 +64,50 @@ def ollama_disponible() -> bool:
 # 1) Extracción estructurada de partidas (rol: GPT-4o)
 # --------------------------------------------------------------------------- #
 _PROMPT_EXTRACCION = """\
-Eres un ingeniero de costos en Bolivia. A partir de la ESPECIFICACIÓN TÉCNICA de
-un ítem de obra, extrae su Análisis de Precios Unitarios preliminar.
+Eres un ingeniero de costos en Bolivia que arma Análisis de Precios Unitarios.
+
+Para el ÍTEM y su ESPECIFICACIÓN, genera la lista COMPLETA de recursos
+necesarios para EJECUTAR ese ítem (alcanzar su objetivo), razonando según el
+CONTEXTO aunque la especificación no los detalle explícitamente.
+
+Reglas obligatorias:
+- MATERIALES: cada uno con su unidad real (kg, m3, m2, ml, bolsa, pza, lt, glb)
+  y la cantidad por UNIDAD del ítem.
+- MANO DE OBRA: siempre con unidad "hora" y la cantidad de horas por unidad.
+- EQUIPO/HERRAMIENTA: siempre con unidad "hora" y la cantidad de horas por unidad.
+- Incluye los recursos mínimos imprescindibles aunque la especificación los omita.
 
 Ítem: {item}
+Unidad del ítem: {unidad}
 
 ESPECIFICACIÓN:
 \"\"\"
 {spec}
 \"\"\"
 
-Devuelve SOLO un JSON válido con esta forma exacta (sin texto adicional):
+Devuelve SOLO un JSON válido (sin texto adicional) con esta forma exacta:
 {{
   "alcance": "resumen del alcance en 1-2 frases",
-  "materiales": ["material 1", "material 2"],
-  "mano_obra": ["albañil", "ayudante"],
-  "equipo": ["mezcladora", "herramienta menor"],
   "normas": ["NB 1225001"],
-  "medicion": "unidad y forma de pago"
+  "medicion": "unidad y forma de pago",
+  "recursos": [
+    {{"tipo": "material", "descripcion": "Cemento Portland", "unidad": "bolsa", "cantidad": 7.0}},
+    {{"tipo": "mano_obra", "descripcion": "Albañil", "unidad": "hora", "cantidad": 8.0}},
+    {{"tipo": "equipo", "descripcion": "Mezcladora de hormigón", "unidad": "hora", "cantidad": 2.0}}
+  ]
 }}
-Incluye los recursos MÍNIMOS razonables aunque la especificación no los detalle.
 """
 
 
-def extraer_estructurado(item_descripcion: str, spec: str,
-                         item_id: int = 0) -> Optional[InfoTecnica]:
+def extraer_estructurado(item_descripcion: str, spec: str, item_id: int = 0,
+                         unidad: str = "") -> Optional[InfoTecnica]:
     """Extracción estructurada de partidas (rol 1).
 
     Prioriza el LLM LOCAL GRATIS (Ollama); si no, usa GPT-4o (de pago).
     Devuelve None si no hay ningún proveedor disponible.
     """
-    prompt = _PROMPT_EXTRACCION.format(item=item_descripcion, spec=spec[:8000])
+    prompt = _PROMPT_EXTRACCION.format(item=item_descripcion, unidad=unidad or "und",
+                                       spec=spec[:8000])
 
     contenido = None
     # 1) Ollama local (gratis, sin tokens)
@@ -174,8 +187,8 @@ def analizar_planos(ruta_pdf: str, prompt: str = "") -> Optional[str]:
 # --------------------------------------------------------------------------- #
 # Orquestador: combina IA (si hay) + extractor offline (siempre)
 # --------------------------------------------------------------------------- #
-def extraer_info_inteligente(item_descripcion: str, spec: str,
-                             item_id: int = 0) -> InfoTecnica:
+def extraer_info_inteligente(item_descripcion: str, spec: str, item_id: int = 0,
+                             unidad: str = "") -> InfoTecnica:
     """Extrae info usando el mejor recurso disponible.
 
     Estrategia: si hay GPT-4o, usa extracción estructurada; enriquece con la
@@ -184,7 +197,7 @@ def extraer_info_inteligente(item_descripcion: str, spec: str,
     """
     info = None
     try:
-        info = extraer_estructurado(item_descripcion, spec, item_id)
+        info = extraer_estructurado(item_descripcion, spec, item_id, unidad)
     except Exception:
         logger.exception("Fallo extracción LLM; se usa extractor offline")
 
@@ -283,16 +296,38 @@ def _json_a_info(contenido: str, item_id: int, item_desc: str,
     """Convierte la respuesta JSON del LLM en InfoTecnica; cae a offline si falla."""
     try:
         data = json.loads(_limpiar_json(contenido))
+        recursos = []
+        mats, mo, eq = [], [], []
+        for r in data.get("recursos", []):
+            tipo = str(r.get("tipo", "material")).lower()
+            if tipo not in ("material", "mano_obra", "equipo"):
+                tipo = "material"
+            unidad = str(r.get("unidad", ""))
+            # mano de obra y equipo: forzar unidad horas
+            if tipo in ("mano_obra", "equipo"):
+                unidad = "hora"
+            desc = str(r.get("descripcion", "")).strip()
+            if not desc:
+                continue
+            try:
+                cant = float(r.get("cantidad", 0) or 0)
+            except (TypeError, ValueError):
+                cant = 0.0
+            recursos.append({"tipo": tipo, "descripcion": desc, "unidad": unidad,
+                             "cantidad": cant, "categoria": ""})
+            (mats if tipo == "material" else mo if tipo == "mano_obra" else eq
+             ).append(desc)
         return InfoTecnica(
             item_id=item_id,
             alcance=str(data.get("alcance", ""))[:500],
-            materiales=[str(x) for x in data.get("materiales", [])],
-            mano_obra=[str(x) for x in data.get("mano_obra", [])],
-            equipo=[str(x) for x in data.get("equipo", [])],
+            materiales=mats or [str(x) for x in data.get("materiales", [])],
+            mano_obra=mo or [str(x) for x in data.get("mano_obra", [])],
+            equipo=eq or [str(x) for x in data.get("equipo", [])],
             normas=[str(x) for x in data.get("normas", [])],
             medicion=str(data.get("medicion", "")),
+            recursos_detalle=recursos,
             tiene_especificacion=bool(spec.strip()),
-            resumen="Extraído con IA (LLM)")
+            resumen="Generado con IA según contexto del ítem")
     except (json.JSONDecodeError, AttributeError, TypeError):
         logger.warning("JSON inválido del LLM; usando extractor offline")
         return extraer_info(item_desc, spec, item_id)

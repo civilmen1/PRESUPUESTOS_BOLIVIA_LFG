@@ -13,7 +13,7 @@ from providers import email_service
 
 
 def render(usuario=None):
-    st.title("🏭 Portal del Proveedor — Cotizaciones")
+    st.title(" Portal del Proveedor — Cotizaciones")
     st.caption("Recibe solicitudes de cotización y registra tus precios para "
                "integrar la base de precios de materiales más grande de Bolivia.")
 
@@ -31,7 +31,7 @@ def render(usuario=None):
     if not solicitudes:
         st.info("No tienes solicitudes de cotización todavía.")
     for s in solicitudes:
-        estado = "✅ respondida" if s.get("respondio") else "⏳ pendiente"
+        estado = " respondida" if s.get("respondio") else "⏳ pendiente"
         with st.expander(f"{estado} · {s.get('asunto')} · "
                          f"{s.get('fecha_envio', '')[:10]}"):
             st.markdown(s.get("cuerpo") or "", unsafe_allow_html=True)
@@ -52,7 +52,7 @@ def render(usuario=None):
                                       key=f"v_{s['id']}")
                 disp = st.text_input("Disponibilidad / stock", key=f"di_{s['id']}")
                 obs = st.text_input("Observaciones", key=f"o_{s['id']}")
-                if st.form_submit_button("📨 Enviar cotización") and desc and precio > 0:
+                if st.form_submit_button(" Enviar cotización") and desc and precio > 0:
                     email_service.guardar_respuesta_cotizacion(
                         contacto_id=s["id"], proveedor_id=proveedor_id,
                         descripcion=desc, unidad=unidad, precio=precio,
@@ -63,7 +63,7 @@ def render(usuario=None):
                     st.rerun()
 
     st.divider()
-    st.subheader("📋 Mis cotizaciones enviadas")
+    st.subheader(" Mis cotizaciones enviadas")
     respuestas = email_service.respuestas_de_proveedor(proveedor_id)
     if respuestas:
         df = pd.DataFrame([{

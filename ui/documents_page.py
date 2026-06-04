@@ -12,7 +12,7 @@ from ui.components import requiere_proyecto
 
 
 def render(proyecto):
-    st.title("📄 Documentos técnicos (DBC / Especificaciones / TDR)")
+    st.title(" Documentos técnicos (DBC / Especificaciones / TDR)")
     if not requiere_proyecto(proyecto):
         return
 
@@ -20,9 +20,9 @@ def render(proyecto):
         "PDF / DOCX / DOC / TXT / Imagen (PNG, JPG, TIFF)",
         type=["pdf", "docx", "doc", "txt", "png", "jpg", "jpeg", "tiff", "tif", "bmp"],
         accept_multiple_files=True)
-    st.caption("📷 Los PDFs escaneados y las imágenes se leen con OCR "
+    st.caption(" Los PDFs escaneados y las imágenes se leen con OCR "
                "automáticamente (requiere Tesseract instalado).")
-    if archivos and st.button("📥 Procesar documentos", type="primary"):
+    if archivos and st.button(" Procesar documentos", type="primary"):
         for archivo in archivos:
             ruta = settings.UPLOAD_DIR / archivo.name
             ruta.write_bytes(archivo.getbuffer())
@@ -51,23 +51,23 @@ def render(proyecto):
     col_a, col_b = st.columns([3, 1])
     col_a.subheader(f"Documentos cargados ({len(fuentes)}) · "
                     f"Secciones: {len(secciones)}")
-    if col_b.button("🧹 Eliminar TODOS", use_container_width=True):
+    if col_b.button(" Eliminar TODOS", use_container_width=True):
         n = repositories.borrar_todas_fuentes(proyecto.id)
         st.success(f"{n} documento(s) eliminado(s).")
         st.rerun()
 
     for f in fuentes:
-        with st.expander(f"📑 {f.nombre_archivo}  ·  {f.tipo_documento}"):
+        with st.expander(f" {f.nombre_archivo}  ·  {f.tipo_documento}"):
             secs = [s for s in secciones if s.fuente_id == f.id]
             cc1, cc2 = st.columns([3, 1])
             cc1.caption(f"{len(secs)} secciones · "
                         f"{len(f.texto_extraido or '')} caracteres")
-            if cc2.button("🗑 Eliminar documento", key=f"del_{f.id}",
+            if cc2.button(" Eliminar documento", key=f"del_{f.id}",
                           use_container_width=True):
                 repositories.borrar_fuente(f.id)
                 st.success(f"Documento '{f.nombre_archivo}' eliminado.")
                 st.rerun()
-            busqueda = st.text_input("🔎 Buscar en el documento", key=f"buscar_{f.id}")
+            busqueda = st.text_input(" Buscar en el documento", key=f"buscar_{f.id}")
             for s in secs:
                 if busqueda and busqueda.lower() not in (s.contenido or "").lower():
                     continue

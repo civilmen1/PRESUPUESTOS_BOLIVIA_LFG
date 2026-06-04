@@ -156,7 +156,8 @@ AUTH_SALT = os.getenv("AUTH_SALT", "apu-bolivia-salt-cambiar-en-produccion")
 # Verificación de NIT (Bolivia) vía API externa. Si no hay token, se omite.
 VERIFIK_TOKEN = os.getenv("VERIFIK_TOKEN", "")
 VERIFIK_URL = os.getenv("VERIFIK_URL", "https://api.verifik.co/v2/bo/nit/{nit}")
-# Si está activo, la verificación de correo se simula (no envía correo real);
-# el código/token de verificación se muestra en pantalla para pruebas.
-AUTH_EMAIL_DRY_RUN = os.getenv("AUTH_EMAIL_DRY_RUN", "true").lower() in {
+# Verificación de correo: por defecto ENVÍA correos reales por SMTP (Google).
+# Para que funcione hay que configurar SMTP_USER/SMTP_PASSWORD (Gmail con
+# contraseña de aplicación). Si se pone en true, se simula (solo para desarrollo).
+AUTH_EMAIL_DRY_RUN = os.getenv("AUTH_EMAIL_DRY_RUN", "false").lower() in {
     "1", "true", "yes"}

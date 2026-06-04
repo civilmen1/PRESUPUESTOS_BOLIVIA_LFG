@@ -1,4 +1,4 @@
-# Configuración de Streamlit para producción (despliegue en la nube).
+# Configuracion de Streamlit (produccion y diseno).
 [server]
 headless = true
 address = "0.0.0.0"
@@ -10,6 +10,11 @@ maxUploadSize = 50
 [browser]
 gatherUsageStats = false
 
+# Tema sobrio y profesional (azul corporativo / fondo claro).
 [theme]
-primaryColor = "#1F4E78"
 base = "light"
+primaryColor = "#1F3B57"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F1F4F8"
+textColor = "#21303F"
+font = "sans serif"

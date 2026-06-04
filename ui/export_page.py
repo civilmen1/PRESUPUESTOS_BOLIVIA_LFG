@@ -11,25 +11,25 @@ from ui.components import requiere_proyecto
 
 
 def render(proyecto):
-    st.title("📤 Exportación")
+    st.title(" Exportación")
     if not requiere_proyecto(proyecto):
         return
 
     st.write(f"Proyecto: **{proyecto.nombre}**")
 
-    st.subheader("📑 Formularios oficiales NB-SABS (DS 0181)")
+    st.subheader(" Formularios oficiales NB-SABS (DS 0181)")
     st.caption("B-1 Presupuesto · B-2 APU · B-3 Precios Elementales · "
                "B-4 Equipo Mínimo · A-8 Cronograma de Obra · "
                "A-9 Movilización de Equipo · B-5 Cronograma de Desembolsos")
     if not proyecto.representante_legal:
-        st.info("💡 Define el representante legal y el plazo/anticipo al crear el "
+        st.info(" Define el representante legal y el plazo/anticipo al crear el "
                 "proyecto para que los formularios salgan completos.")
-    if st.button("🇧🇴 Generar Formularios oficiales (Excel)", type="primary",
+    if st.button(" Generar Formularios oficiales (Excel)", type="primary",
                  use_container_width=True):
         ruta = exportar_formularios(proyecto.id)
         with open(ruta, "rb") as fh:
             st.download_button(
-                "⬇️ Descargar Formularios B-1 a B-5", fh, file_name=ruta.name,
+                " Descargar Formularios B-1 a B-5", fh, file_name=ruta.name,
                 mime="application/vnd.openxmlformats-officedocument."
                      "spreadsheetml.sheet", use_container_width=True)
 
@@ -37,23 +37,23 @@ def render(proyecto):
     st.subheader("Otras exportaciones")
     c1, c2, c3 = st.columns(3)
 
-    if c1.button("📊 Generar Excel", use_container_width=True):
+    if c1.button(" Generar Excel", use_container_width=True):
         ruta = exportar_excel(proyecto.id)
         with open(ruta, "rb") as fh:
-            st.download_button("⬇️ Descargar Excel", fh, file_name=ruta.name,
+            st.download_button(" Descargar Excel", fh, file_name=ruta.name,
                                mime="application/vnd.openxmlformats-officedocument."
                                     "spreadsheetml.sheet", use_container_width=True)
 
-    if c2.button("📄 Generar PDF", use_container_width=True):
+    if c2.button(" Generar PDF", use_container_width=True):
         ruta = exportar_pdf(proyecto.id)
         with open(ruta, "rb") as fh:
-            st.download_button("⬇️ Descargar PDF", fh, file_name=ruta.name,
+            st.download_button(" Descargar PDF", fh, file_name=ruta.name,
                                use_container_width=True)
 
-    if c3.button("🧾 Generar JSON", use_container_width=True):
+    if c3.button(" Generar JSON", use_container_width=True):
         ruta = exportar_json(proyecto.id)
         with open(ruta, "rb") as fh:
-            st.download_button("⬇️ Descargar JSON", fh, file_name=ruta.name,
+            st.download_button(" Descargar JSON", fh, file_name=ruta.name,
                                mime="application/json", use_container_width=True)
 
     st.caption("Las exportaciones incluyen trazabilidad técnica y de cotización.")

@@ -9,7 +9,7 @@ from ui.components import badge_nivel, requiere_proyecto
 
 
 def render(proyecto):
-    st.title("💲 Cotizaciones")
+    st.title(" Cotizaciones")
     if not requiere_proyecto(proyecto):
         return
 

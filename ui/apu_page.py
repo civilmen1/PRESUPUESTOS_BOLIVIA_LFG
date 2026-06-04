@@ -9,7 +9,7 @@ from ui.components import badge_nivel, requiere_proyecto
 
 
 def render(proyecto):
-    st.title("🧮 APUs — Análisis de Precios Unitarios")
+    st.title(" APUs — Análisis de Precios Unitarios")
     if not requiere_proyecto(proyecto):
         return
 
@@ -22,8 +22,8 @@ def render(proyecto):
     items_reales = [it for it in items if not it.es_modulo]
     sin_validar = [it for it in items_reales if not it.validado_tecnico]
     if sin_validar:
-        st.error(f"🔒 Hay {len(sin_validar)} de {len(items_reales)} ítems sin "
-                 "validar técnicamente. Ve a **🔗 Vinculación técnica**, revisa "
+        st.error(f" Hay {len(sin_validar)} de {len(items_reales)} ítems sin "
+                 "validar técnicamente. Ve a ** Vinculación técnica**, revisa "
                  "los recursos (material / mano de obra / equipo) de cada ítem y "
                  "márcalos como validados antes de cotizar y generar precios.")
         with st.expander("Ver ítems pendientes de validación"):
@@ -31,14 +31,14 @@ def render(proyecto):
                 st.write(f"⏳ {it.numero or ''} {it.descripcion}")
         return
 
-    st.success("✅ Todos los ítems están validados técnicamente.")
+    st.success(" Todos los ítems están validados técnicamente.")
     st.subheader("Generación automática (cotizador jerárquico Bolivia)")
     c1, c2, c3 = st.columns(3)
     permitir_web = c1.checkbox("Nivel 2: búsqueda web", value=True)
     permitir_email = c2.checkbox("Nivel 3: solicitar por email", value=False)
-    st.caption("Orden de cotización: 🗃️ BD Bolivia → 🌐 Web → ✉️ Email")
+    st.caption("Orden de cotización:  BD Bolivia   Web   Email")
 
-    if c3.button("⚙️ Generar APUs de todos los ítems", type="primary"):
+    if c3.button(" Generar APUs de todos los ítems", type="primary"):
         prog = st.progress(0.0)
         for i, it in enumerate(items_reales):
             apu_engine.generar_apu_item(it, proyecto, permitir_web=permitir_web,
@@ -55,10 +55,10 @@ def render(proyecto):
         res = repositories.obtener_resultado(it.id)
         total = res.precio_unitario_total if res else 0
         pu_txt = currency.formatear(total, proyecto.moneda, proyecto)
-        with st.expander(f"🧱 {it.numero or ''} {it.descripcion[:55]} — "
+        with st.expander(f" {it.numero or ''} {it.descripcion[:55]} — "
                          f"P.U. {pu_txt}"):
             cga, cgb = st.columns([1, 1])
-            if cga.button("🔄 Recotizar (mantiene recursos)", key=f"regen_{it.id}"):
+            if cga.button(" Recotizar (mantiene recursos)", key=f"regen_{it.id}"):
                 apu_engine.generar_apu_item(it, proyecto, permitir_web=permitir_web,
                                             permitir_email=permitir_email,
                                             reusar_recursos=True)
@@ -78,7 +78,7 @@ def render(proyecto):
                 df, use_container_width=True, num_rows="dynamic",
                 disabled=["id", "Subtotal", "Fuente"], key=f"ed_{it.id}")
 
-            if st.button("💾 Guardar recursos", key=f"save_{it.id}"):
+            if st.button(" Guardar recursos", key=f"save_{it.id}"):
                 _guardar_recursos(it, recursos, edit, proyecto)
                 st.rerun()
 
@@ -161,7 +161,7 @@ def _seccion_difusion(proyecto):
     usuario = st.session_state.get("usuario")
     if not usuario:
         return
-    with st.expander("📡 Enviar materiales a cotizar a empresas proveedoras"):
+    with st.expander(" Enviar materiales a cotizar a empresas proveedoras"):
         st.caption("Registra los materiales del proyecto en la base nacional y "
                    "los envía por correo a las empresas que ofrecen esos "
                    "materiales, con la cantidad, tipo y tus datos de contacto "
@@ -177,7 +177,7 @@ def _seccion_difusion(proyecto):
             for m in mats]), use_container_width=True, hide_index=True)
         st.caption(f"Encargado de adquisiciones: **{usuario.encargado_nombre or '—'}** "
                    f"· {usuario.email}")
-        if st.button("📨 Difundir demanda a proveedores", type="primary"):
+        if st.button(" Difundir demanda a proveedores", type="primary"):
             comp = demand_broadcast.comprador_desde_usuario(usuario)
             resumen = demand_broadcast.difundir_demanda(proyecto.id, comp,
                                                         enviar_email=True)

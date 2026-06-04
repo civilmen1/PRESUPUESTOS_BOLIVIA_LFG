@@ -1,4 +1,4 @@
-"""Página de Vinculación técnica: ítem ↔ sección, con score y validación."""
+"""Página de Vinculación técnica: ítem  sección, con score y validación."""
 from __future__ import annotations
 
 import streamlit as st
@@ -23,7 +23,7 @@ def _extraer(descripcion, spec, item_id):
 
 
 def render(proyecto):
-    st.title("🔗 Vinculación técnica (ítem ↔ especificación)")
+    st.title(" Vinculación técnica (ítem  especificación)")
     if not requiere_proyecto(proyecto):
         return
 
@@ -34,7 +34,7 @@ def render(proyecto):
             disp = proveedores_disponibles()
             activos = [k for k, v in disp.items() if v]
             if activos:
-                st.success("🤖 Extracción con IA activa: " + ", ".join(activos))
+                st.success(" Extracción con IA activa: " + ", ".join(activos))
             else:
                 st.warning("USAR_LLM activo pero sin proveedor disponible. Para "
                            "LLM **local gratis**: instala Ollama, ejecuta "
@@ -56,12 +56,12 @@ def render(proyecto):
     # Los módulos solo agrupan: no se vinculan ni se analizan.
     items_reales = [it for it in items if not it.es_modulo]
 
-    st.caption("🔎 Búsqueda jerárquica tipo IA: 1) localiza el **módulo** del "
+    st.caption(" Búsqueda jerárquica tipo IA: 1) localiza el **módulo** del "
                "ítem en el documento, 2) busca la **especificación del ítem** "
                "dentro de ese módulo. Los módulos solo agrupan y no se vinculan.")
     col1, col2 = st.columns([1, 1])
     top_k = col1.slider("Coincidencias por ítem", 1, 5, 3)
-    if col2.button("⚙️ Ejecutar vinculación inteligente", type="primary"):
+    if col2.button(" Ejecutar vinculación inteligente", type="primary"):
         matcher = SemanticMatcher(secciones)
         with st.spinner("Buscando módulo y especificación de cada ítem..."):
             for it in items_reales:
@@ -78,10 +78,10 @@ def render(proyecto):
     st.progress(validados_tot / total if total else 0.0,
                 text=f"Ítems validados técnicamente: {validados_tot} / {total}")
     if validados_tot < total:
-        st.warning("⚠️ La cotización y los precios unitarios **no podrán "
+        st.warning(" La cotización y los precios unitarios **no podrán "
                    "generarse** hasta validar técnicamente todos los ítems.")
     else:
-        st.success("✅ Todos los ítems están validados. Ya puedes pasar a "
+        st.success(" Todos los ítems están validados. Ya puedes pasar a "
                    "**APUs / Cotización**.")
     st.divider()
 
@@ -90,7 +90,7 @@ def render(proyecto):
         mod = modulos.get(it.id, "")
         if mod and mod != modulo_actual:
             modulo_actual = mod
-            st.markdown(f"### 📁 {mod}")
+            st.markdown(f"###  {mod}")
         _render_item(it)
 
 
@@ -100,7 +100,7 @@ def _render_item(it):
     Para que el ítem NO se contraiga al validar, se mantiene abierto vía
     session_state y se evita st.rerun() en las ediciones.
     """
-    estado = "✅" if it.validado_tecnico else "⏳"
+    estado = "" if it.validado_tecnico else "⏳"
     abierto_key = f"open_{it.id}"
     expandido = st.session_state.get(abierto_key, not it.validado_tecnico)
     with st.expander(f"{estado} {it.numero or ''} {it.descripcion[:60]}",
@@ -109,14 +109,14 @@ def _render_item(it):
         info = _extraer(it.descripcion, spec, it.id)
 
         if info.medicion:
-            st.caption("📏 Medición/pago: " + info.medicion[:200])
+            st.caption(" Medición/pago: " + info.medicion[:200])
         if info.normas:
-            st.caption("📐 Normas: " + ", ".join(info.normas))
+            st.caption(" Normas: " + ", ".join(info.normas))
 
         # Si el ítem no tiene recursos aún, armarlos desde el análisis
         recursos = repositories.listar_recursos(it.id)
         if not recursos:
-            if st.button("⚙️ Armar recursos desde la especificación",
+            if st.button(" Armar recursos desde la especificación",
                          key=f"armar_{it.id}", type="primary"):
                 from core import apu_engine
                 apu_engine.armar_recursos_desde_analisis(it)
@@ -128,14 +128,14 @@ def _render_item(it):
 
         st.markdown("**Resultado del análisis (editable). Verifica que cumpla "
                     "las especificaciones técnicas:**")
-        _tabla_recursos(it, recursos, "material", "🧱 Materiales",
+        _tabla_recursos(it, recursos, "material", " Materiales",
                         "Unidad (kg, m3, pza, glb...)")
-        _tabla_recursos(it, recursos, "mano_obra", "👷 Mano de obra",
+        _tabla_recursos(it, recursos, "mano_obra", " Mano de obra",
                         "Unidad (hora, día, mes)")
-        _tabla_recursos(it, recursos, "equipo", "🚜 Equipo / herramienta",
+        _tabla_recursos(it, recursos, "equipo", " Equipo / herramienta",
                         "Unidad (hora, día, mes)")
 
-        with st.popover("📄 Ver texto técnico / alcance"):
+        with st.popover(" Ver texto técnico / alcance"):
             st.write(info.alcance or "—")
             if spec:
                 st.divider()
@@ -144,7 +144,7 @@ def _render_item(it):
         # Validación armada final (no contrae el ítem)
         st.divider()
         val = st.checkbox(
-            "✔️ Validar técnicamente este ítem (cumple las especificaciones)",
+            " Validar técnicamente este ítem (cumple las especificaciones)",
             value=bool(it.validado_tecnico), key=f"valtec_{it.id}")
         if val != bool(it.validado_tecnico):
             repositories.set_validacion_tecnica(it.id, val)
@@ -170,7 +170,7 @@ def _tabla_recursos(it, recursos, tipo, titulo, ayuda_unidad):
             "Unidad": st.column_config.TextColumn(help=ayuda_unidad),
             "Cantidad": st.column_config.NumberColumn(format="%.4f"),
         })
-    if st.button(f"💾 Guardar {titulo}", key=f"save_{tipo}_{it.id}"):
+    if st.button(f" Guardar {titulo}", key=f"save_{tipo}_{it.id}"):
         ids_previos = {r.id for r in recursos if r.tipo == tipo}
         ids_vistos = set()
         for _, fila in edit.iterrows():

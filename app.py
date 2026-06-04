@@ -28,29 +28,29 @@ def _inicializar() -> bool:
     return True
 
 
-# Perfil 1: Contratistas / Entidades → generación de APUs con IA
+# Perfil 1: Contratistas / Entidades  generación de APUs con IA
 PAGINAS_CONTRATISTA = {
-    "📊 Dashboard": dashboard.render,
-    "📋 Ítems": items_page.render,
-    "📄 Documentos técnicos": documents_page.render,
-    "🔗 Vinculación técnica": linking_page.render,
-    "🧮 APUs": apu_page.render,
-    "💲 Cotizaciones": quotations_page.render,
-    "🏭 Proveedores": suppliers_page.render,
-    "📤 Exportación": export_page.render,
+    " Dashboard": dashboard.render,
+    " Ítems": items_page.render,
+    " Documentos técnicos": documents_page.render,
+    " Vinculación técnica": linking_page.render,
+    " APUs": apu_page.render,
+    " Cotizaciones": quotations_page.render,
+    " Proveedores": suppliers_page.render,
+    " Exportación": export_page.render,
 }
 
 
 def _pantalla_perfil() -> None:
     """Pantalla inicial de selección de perfil de acceso."""
-    st.markdown("<h1 style='text-align:center'>🏗️ APU Bolivia Generator</h1>",
+    st.markdown("<h1 style='text-align:center'> APU Bolivia Generator</h1>",
                 unsafe_allow_html=True)
     st.markdown("<p style='text-align:center'>Selecciona tu perfil de acceso</p>",
                 unsafe_allow_html=True)
     st.write("")
     c1, c2 = st.columns(2)
     with c1:
-        st.subheader("🏢 Contratistas y Entidades")
+        st.subheader(" Contratistas y Entidades")
         st.caption("Constructoras, consultoras, empresas privadas y entidades "
                    "públicas. Genera Análisis de Precios Unitarios con IA, "
                    "vinculación de especificaciones y formularios oficiales.")
@@ -59,7 +59,7 @@ def _pantalla_perfil() -> None:
             st.session_state["perfil"] = "contratista"
             st.rerun()
     with c2:
-        st.subheader("🏭 Proveedores de Materiales")
+        st.subheader(" Proveedores de Materiales")
         st.caption("Ferreterías, distribuidores y proveedores. Recibe "
                    "solicitudes de cotización, registra tus precios y únete a la "
                    "base de precios de materiales más grande de Bolivia.")
@@ -68,9 +68,34 @@ def _pantalla_perfil() -> None:
             st.rerun()
 
 
+_CSS = """
+<style>
+  .stApp { background: #FFFFFF; }
+  /* Botones mas sobrios */
+  .stButton > button {
+      border-radius: 6px;
+      border: 1px solid #1F3B57;
+      font-weight: 600;
+  }
+  /* Encabezados con color corporativo */
+  h1, h2, h3 { color: #1F3B57; }
+  /* Barra lateral con fondo suave */
+  section[data-testid="stSidebar"] { background: #F1F4F8; }
+  /* Tarjetas de metricas */
+  div[data-testid="stMetric"] {
+      background: #F7F9FC;
+      border: 1px solid #E1E8F0;
+      border-radius: 8px;
+      padding: 12px;
+  }
+</style>
+"""
+
+
 def main() -> None:
-    st.set_page_config(page_title=settings.APP_NAME, page_icon="🏗️",
+    st.set_page_config(page_title=settings.APP_NAME, page_icon=":construction:",
                        layout="wide")
+    st.markdown(_CSS, unsafe_allow_html=True)
     _inicializar()
 
     perfil = st.session_state.get("perfil")
@@ -78,9 +103,9 @@ def main() -> None:
         _pantalla_perfil()
         return
 
-    st.sidebar.title("🏗️ APU Bolivia Generator")
+    st.sidebar.title(" APU Bolivia Generator")
     st.sidebar.caption(f"v{settings.APP_VERSION}")
-    if st.sidebar.button("🔄 Cambiar de perfil", use_container_width=True):
+    if st.sidebar.button(" Cambiar de perfil", use_container_width=True):
         st.session_state.pop("perfil", None)
         st.rerun()
     st.sidebar.divider()
@@ -92,19 +117,19 @@ def main() -> None:
         return
 
     if perfil == "proveedor":
-        st.sidebar.success(f"🏭 {usuario.nombre_empresa}")
+        st.sidebar.success(f" {usuario.nombre_empresa}")
         st.sidebar.caption(usuario.email)
-        if st.sidebar.button("🚪 Cerrar sesión", use_container_width=True):
+        if st.sidebar.button(" Cerrar sesión", use_container_width=True):
             st.session_state.pop("usuario", None)
             st.rerun()
         provider_portal.render(usuario)
         return
 
-    st.sidebar.success(f"🏢 {usuario.nombre_empresa}")
+    st.sidebar.success(f" {usuario.nombre_empresa}")
     st.sidebar.caption(f"{usuario.email}")
     if usuario.nit_verificado:
-        st.sidebar.caption(f"✅ NIT verificado: {usuario.nit_razon_social or usuario.nit}")
-    if st.sidebar.button("🚪 Cerrar sesión", use_container_width=True):
+        st.sidebar.caption(f" NIT verificado: {usuario.nit_razon_social or usuario.nit}")
+    if st.sidebar.button(" Cerrar sesión", use_container_width=True):
         st.session_state.pop("usuario", None)
         st.rerun()
     st.sidebar.divider()
@@ -114,8 +139,8 @@ def main() -> None:
     seleccion = st.sidebar.radio("Navegación", list(PAGINAS_CONTRATISTA.keys()))
 
     st.sidebar.divider()
-    modo_email = "🟢 real" if not settings.EMAIL_DRY_RUN else "🟡 simulado"
-    modo_web = "🟢 real" if not settings.SCRAPER_DRY_RUN else "🟡 simulado"
+    modo_email = " real" if not settings.EMAIL_DRY_RUN else " simulado"
+    modo_web = " real" if not settings.SCRAPER_DRY_RUN else " simulado"
     st.sidebar.caption(f"Email: {modo_email}  ·  Web: {modo_web}")
 
     PAGINAS_CONTRATISTA[seleccion](proyecto)

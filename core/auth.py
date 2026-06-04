@@ -55,6 +55,21 @@ def _verificar_password(password: str, hash_guardado: str) -> bool:
     return secrets.compare_digest(_hash_password(password), hash_guardado or "")
 
 
+def validar_password(password: str) -> tuple[bool, str]:
+    """Valida que la contraseña cumpla los estándares mínimos de seguridad.
+
+    Reglas: mínimo 8 caracteres y al menos una letra y un número.
+    Devuelve (es_valida, mensaje).
+    """
+    if len(password or "") < 8:
+        return False, "La contraseña debe tener al menos 8 caracteres."
+    if not any(c.isalpha() for c in password):
+        return False, "La contraseña debe incluir al menos una letra."
+    if not any(c.isdigit() for c in password):
+        return False, "La contraseña debe incluir al menos un número."
+    return True, "Contraseña válida."
+
+
 # --------------------------------------------------------------------------- #
 # Registro
 # --------------------------------------------------------------------------- #
@@ -73,6 +88,9 @@ def registrar_usuario(u: Usuario, password: str) -> tuple[Optional[int], str]:
     """
     if email_existe(u.email):
         raise ValueError("Ya existe una cuenta con ese correo electrónico.")
+    ok, msg = validar_password(password)
+    if not ok:
+        raise ValueError(msg)
     token = f"{secrets.randbelow(1000000):06d}"  # código de 6 dígitos
     with db_session() as conn:
         cur = conn.execute(
@@ -114,17 +132,21 @@ def registrar_proveedor_con_cuenta(u: Usuario, password: str,
 # Verificación de correo
 # --------------------------------------------------------------------------- #
 def enviar_codigo_verificacion(email: str, token: str) -> bool:
-    """Envía el código de verificación por correo (o lo simula en dry-run)."""
+    """Envía el código de verificación por correo real (Gmail/SMTP)."""
     if settings.AUTH_EMAIL_DRY_RUN:
         logger.info("[DRY-RUN] Código de verificación para %s: %s", email, token)
         return True
+    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+        logger.warning("SMTP no configurado: no se puede enviar el código a %s",
+                       email)
+        return False
     try:
         import smtplib
         from email.mime.text import MIMEText
-        msg = MIMEText(
-            f"Su código de verificación para {settings.APP_NAME} es: {token}",
-            "plain", "utf-8")
-        msg["Subject"] = f"Verificación de correo - {settings.APP_NAME}"
+        cuerpo = (f"Su código de verificación para {settings.APP_NAME} es: "
+                  f"{token}\n\nIngréselo en la aplicación para activar su cuenta.")
+        msg = MIMEText(cuerpo, "plain", "utf-8")
+        msg["Subject"] = f"Código de verificación - {settings.APP_NAME}"
         msg["From"] = settings.SMTP_FROM
         msg["To"] = email
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as s:

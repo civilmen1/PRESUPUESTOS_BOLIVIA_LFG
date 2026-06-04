@@ -83,6 +83,9 @@ class InfoTecnica:
     medicion: str = ""
     resumen: str = ""
     tiene_especificacion: bool = False
+    # Recursos detallados (cuando la IA los genera con cantidad y unidad).
+    # Cada uno: {tipo, descripcion, unidad, cantidad, categoria}
+    recursos_detalle: List[dict] = field(default_factory=list)
 
     def como_texto(self) -> str:
         """Texto plano para alimentar el motor de APU (inferencia de recursos)."""

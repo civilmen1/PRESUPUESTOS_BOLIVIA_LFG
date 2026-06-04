@@ -24,9 +24,9 @@ def _setup():
     init_db()
     u = auth.Usuario(perfil="contratista", nombre_empresa="ABC SRL",
                      email="c@abc.bo", encargado_nombre="Ana", encargado_whatsapp="77")
-    uid, tok = auth.registrar_usuario(u, "x")
+    uid, tok = auth.registrar_usuario(u, "clave1234")
     auth.verificar_email("c@abc.bo", tok)
-    usr, _ = auth.login("c@abc.bo", "x")
+    usr, _ = auth.login("c@abc.bo", "clave1234")
     supplier_service.alta_manual(Proveedor(
         nombre="Cementos Sur", email="v@cem.bo", categoria="cemento",
         materiales_servicios="cemento portland"))

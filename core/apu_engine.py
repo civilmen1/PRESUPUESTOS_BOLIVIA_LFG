@@ -24,14 +24,15 @@ from models.quotation import Cotizacion
 logger = get_logger(__name__)
 
 
-def _extraer_info_item(descripcion: str, spec: str, item_id: int):
+def _extraer_info_item(descripcion: str, spec: str, item_id: int,
+                       unidad: str = ""):
     """Extrae info de la especificación: usa IA si está habilitada, si no offline."""
     from config import settings
     if settings.USAR_LLM:
         try:
             from core.llm_extractor import extraer_info_inteligente, hay_llm
             if hay_llm():
-                return extraer_info_inteligente(descripcion, spec, item_id)
+                return extraer_info_inteligente(descripcion, spec, item_id, unidad)
         except Exception:
             logger.exception("Fallo extractor IA; usando offline")
     from core.info_extractor import extraer_info
@@ -146,12 +147,28 @@ def armar_recursos_desde_analisis(item: Item, persistir: bool = True
             spec = repositories.texto_tecnico_item(item.id)
         except Exception:
             spec = ""
-    texto_extra = ""
-    if spec:
-        info = _extraer_info_item(item.descripcion, spec, item.id)
-        texto_extra = info.como_texto()
 
-    recursos = inferir_recursos(item, texto_extra)
+    info = _extraer_info_item(item.descripcion, spec, item.id, item.unidad)
+
+    # Si la IA generó recursos detallados (con cantidad y unidad), se usan tal
+    # cual: mano de obra y equipo en HORAS, materiales con su unidad real.
+    recursos: List[RecursoAPU] = []
+    detalle = getattr(info, "recursos_detalle", None) or []
+    if detalle:
+        for d in detalle:
+            r = RecursoAPU(
+                item_id=item.id, tipo=d.get("tipo", TIPO_MATERIAL),
+                descripcion=d.get("descripcion", ""), unidad=d.get("unidad", ""),
+                rendimiento=float(d.get("cantidad", 0) or 0),
+                cantidad_apu=float(d.get("cantidad", 0) or 0),
+                fuente_precio="sin_precio")
+            r._categoria = d.get("categoria", "")
+            recursos.append(r)
+        recursos = _garantizar_minimos(item, recursos, info.como_texto())
+    else:
+        # Sin IA: plantillas + contexto (extractor offline por reglas)
+        recursos = inferir_recursos(item, info.como_texto())
+
     if persistir and item.id:
         repositories.borrar_recursos_item(item.id)
         for r in recursos:

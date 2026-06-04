@@ -10,10 +10,10 @@ from ui.components import requiere_proyecto
 
 
 def render(proyecto):
-    st.title("🏭 Proveedores Bolivia")
+    st.title(" Proveedores Bolivia")
 
     tab_lista, tab_alta, tab_precios = st.tabs(
-        ["📋 Lista", "➕ Alta proveedor", "🏷️ Precios de referencia"])
+        [" Lista", " Alta proveedor", " Precios de referencia"])
 
     # ---------------------------------------------------------------- lista
     with tab_lista:
@@ -29,7 +29,7 @@ def render(proyecto):
             df = pd.DataFrame([{
                 "id": p.id, "Nombre": p.nombre, "Categoría": p.categoria,
                 "Email": p.email, "Teléfono": p.telefono, "Región": p.region,
-                "Ciudad": p.ciudad, "Verificado": "✅" if p.verificado else "—",
+                "Ciudad": p.ciudad, "Verificado": "" if p.verificado else "—",
                 "Estado": p.estado, "Fuente": p.fuente_alta} for p in proveedores])
             st.dataframe(df, use_container_width=True, hide_index=True)
 
