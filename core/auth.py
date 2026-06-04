@@ -201,8 +201,8 @@ def verificar_seprec(seprec: str) -> dict:
     """Verifica un numero de matricula SEPREC.
 
     Orden de verificacion:
-      1. Portal oficial automatizado con navegador (si SEPREC_USAR_NAVEGADOR).
-      2. API configurada (SEPREC_API_URL), si existe.
+      1. API oficial del SEPREC (consulta de estado de habilitacion).
+      2. Portal oficial con navegador (si SEPREC_USAR_NAVEGADOR), como respaldo.
       3. Validacion de formato (numerico de 6 a 12 digitos).
     Devuelve {ok, razon_social, estado, mensaje, fuente}.
     """
@@ -210,42 +210,22 @@ def verificar_seprec(seprec: str) -> dict:
     if not seprec:
         return {"ok": False, "mensaje": "Numero de SEPREC vacio."}
 
-    # 1) Portal oficial con navegador
+    # 1) API oficial del SEPREC (lo mas rapido y estable)
+    res_api = _consultar_seprec_api(seprec)
+    if res_api is not None:
+        return res_api
+
+    # 2) Portal oficial con navegador (respaldo si la API no respondio)
     if settings.SEPREC_USAR_NAVEGADOR:
         try:
             from core.seprec_verifier import verificar_seprec_navegador
             res = verificar_seprec_navegador(seprec)
-            # Si el portal dio una respuesta concluyente (encontrado o no), se usa.
             if res.get("fuente") in ("seprec_portal",):
                 return res
             logger.info("SEPREC navegador no concluyente (%s); se usa respaldo",
                         res.get("fuente"))
         except Exception as exc:
             logger.error("Fallo verificacion SEPREC por navegador: %s", exc)
-
-    # 2) API configurada
-    api_url = settings.SEPREC_API_URL
-    if api_url:
-        try:
-            import requests
-            headers = {}
-            if settings.SEPREC_API_TOKEN:
-                headers["Authorization"] = f"Bearer {settings.SEPREC_API_TOKEN}"
-            resp = requests.get(api_url.format(seprec=seprec), headers=headers,
-                                timeout=15)
-            resp.raise_for_status()
-            data = resp.json()
-            d = data.get("data", data)
-            return {
-                "ok": True,
-                "razon_social": d.get("razonSocial") or d.get("nombre") or
-                                d.get("razon_social", ""),
-                "estado": d.get("estado") or d.get("status", "VIGENTE"),
-                "mensaje": "SEPREC verificado en linea.",
-                "fuente": "seprec_api",
-            }
-        except Exception as exc:
-            logger.error("Error verificando SEPREC %s en linea: %s", seprec, exc)
 
     # 3) Validacion de formato
     if seprec.isdigit() and 6 <= len(seprec) <= 12:
@@ -254,6 +234,79 @@ def verificar_seprec(seprec: str) -> dict:
                 "fuente": "formato"}
     return {"ok": False, "mensaje": "El numero de SEPREC no tiene un formato "
             "valido (debe ser numerico, de 6 a 12 digitos)."}
+
+
+def _consultar_seprec_api(seprec: str):
+    """Consulta la API oficial del SEPREC de estado de habilitacion.
+
+    Devuelve un dict con el resultado, o None si la API no esta disponible o no
+    responde (para que el flujo caiga al respaldo).
+    """
+    base = settings.SEPREC_API_URL or settings.SEPREC_API_BASE
+    if not base:
+        return None
+    try:
+        import requests
+    except ImportError:
+        return None
+
+    headers = {"Accept": "application/json",
+               "User-Agent": "APUBolivia/1.0"}
+    if settings.SEPREC_API_TOKEN:
+        headers["Authorization"] = f"Bearer {settings.SEPREC_API_TOKEN}"
+
+    # Si la URL trae {seprec}, se usa tal cual; si no, se prueban variantes
+    # comunes: matricula al final de la ruta o como parametro de consulta.
+    if "{seprec}" in base:
+        intentos = [(base.format(seprec=seprec), None)]
+    else:
+        b = base.rstrip("/")
+        intentos = [
+            (f"{b}/{seprec}", None),
+            (b, {"matricula": seprec}),
+            (b, {"nroMatricula": seprec}),
+        ]
+
+    for url, params in intentos:
+        try:
+            resp = requests.get(url, headers=headers, params=params, timeout=15)
+            if resp.status_code != 200:
+                continue
+            data = resp.json()
+            return _interpretar_seprec(data, seprec)
+        except Exception as exc:
+            logger.warning("SEPREC API intento fallido (%s): %s", url, exc)
+            continue
+    logger.error("No se pudo consultar la API del SEPREC para %s", seprec)
+    return None
+
+
+def _interpretar_seprec(data, seprec: str) -> dict:
+    """Interpreta la respuesta JSON de la API del SEPREC de forma flexible."""
+    d = data.get("data", data) if isinstance(data, dict) else {}
+    if isinstance(d, list):
+        d = d[0] if d else {}
+    texto = str(data).lower()
+
+    # Razon social y estado (nombres flexibles segun la respuesta real).
+    razon = (d.get("razonSocial") or d.get("razon_social") or d.get("nombre") or
+             d.get("nombreComercial") or "")
+    estado = str(d.get("estado") or d.get("estadoHabilitacion") or
+                 d.get("habilitado") or d.get("status") or "").upper()
+
+    # Determinar si esta habilitada.
+    no_encontrado = ("no se encontr" in texto or "not found" in texto or
+                     d.get("encontrado") is False)
+    habilitada = (not no_encontrado and (
+        bool(razon) or estado in ("HABILITADA", "VIGENTE", "ACTIVA", "ACTIVO",
+                                  "TRUE", "1") or d.get("habilitado") in (True, 1)))
+
+    if no_encontrado or (not habilitada and not razon):
+        return {"ok": False, "estado": estado or "NO ENCONTRADO",
+                "mensaje": "La matricula no se encontro o no esta habilitada en "
+                "el SEPREC.", "fuente": "seprec_api"}
+    return {"ok": True, "razon_social": razon, "estado": estado or "HABILITADA",
+            "mensaje": "Matricula verificada en el SEPREC.", "fuente": "seprec_api"}
 
 
 # --------------------------------------------------------------------------- #
