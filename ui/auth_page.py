@@ -22,7 +22,7 @@ def render_login(perfil: str = "contratista"):
 
     pend = st.session_state.get("verificacion_pendiente")
     if pend:
-        _dialogo_verificacion(pend)
+        _panel_verificacion(pend)
 
     etiqueta_reg = "Registrar proveedor" if es_proveedor else "Registrar empresa"
     tab_login, tab_registro = st.tabs(["Iniciar sesion", etiqueta_reg])
@@ -47,7 +47,7 @@ def render_login(perfil: str = "contratista"):
                     st.error(msg)
                     if "verificar tu correo" in msg:
                         st.session_state["verificacion_pendiente"] = {
-                            "email": email}
+                            "email": email, "enviado": False}
                         st.rerun()
 
     with tab_registro:
@@ -57,34 +57,52 @@ def render_login(perfil: str = "contratista"):
             _form_registro()
 
 
-@st.dialog("Confirma tu correo electronico")
-def _dialogo_verificacion(datos: dict):
+def _panel_verificacion(datos: dict):
+    """Panel destacado de verificacion de correo (estable, sin dialogos fragiles)."""
     email = datos.get("email", "")
-    st.write(f"Enviamos un codigo de 6 digitos a {email}. Ingresalo para "
-             "activar tu cuenta.")
-    codigo = st.text_input("Codigo de verificacion", max_chars=6)
-    col1, col2 = st.columns(2)
-    if col1.button("Verificar", type="primary", use_container_width=True):
-        if auth.verificar_email(email, codigo):
+    enviado = datos.get("enviado", True)
+    with st.container(border=True):
+        st.subheader("Confirma tu correo electronico")
+        if enviado:
+            st.write(f"Enviamos un codigo de 6 digitos a **{email}**. "
+                     "Revisa tu bandeja de entrada (y la carpeta de spam) e "
+                     "ingresalo aqui para activar tu cuenta.")
+        else:
+            st.warning(f"Tu cuenta ({email}) existe pero el correo no esta "
+                       "verificado. Pulsa 'Reenviar codigo' y revisa tu correo.")
+        with st.form("form_verif"):
+            codigo = st.text_input("Codigo de verificacion", max_chars=6)
+            c1, c2, c3 = st.columns(3)
+            verificar = c1.form_submit_button("Verificar", type="primary",
+                                              use_container_width=True)
+            reenviar = c2.form_submit_button("Reenviar codigo",
+                                             use_container_width=True)
+            cancelar = c3.form_submit_button("Cancelar", use_container_width=True)
+        if verificar:
+            if auth.verificar_email(email, codigo.strip()):
+                st.session_state.pop("verificacion_pendiente", None)
+                st.success("Correo verificado. Ya puedes iniciar sesion.")
+                st.rerun()
+            else:
+                st.error("Codigo incorrecto. Revisa tu correo e intenta de nuevo.")
+        if reenviar:
+            token = auth.reenviar_token(email)
+            if token is None:
+                st.error("No hay una cuenta pendiente con ese correo.")
+            elif auth.enviar_codigo_verificacion(email, token):
+                st.session_state["verificacion_pendiente"]["enviado"] = True
+                st.success("Codigo reenviado. Revisa tu correo (y spam).")
+            else:
+                st.error("No se pudo enviar el correo. La configuracion de correo "
+                         "(SMTP) tiene un problema. Avisa al administrador.")
+        if cancelar:
             st.session_state.pop("verificacion_pendiente", None)
-            st.success("Correo verificado. Ya puedes iniciar sesion.")
             st.rerun()
-        else:
-            st.error("Codigo incorrecto. Revisa tu correo e intenta de nuevo.")
-    if col2.button("Reenviar codigo", use_container_width=True):
-        token = auth.reenviar_token(email)
-        if token:
-            auth.enviar_codigo_verificacion(email, token)
-            st.info("Codigo reenviado a tu correo.")
-        else:
-            st.error("No hay una cuenta pendiente con ese correo.")
-    if st.button("Cerrar"):
-        st.session_state.pop("verificacion_pendiente", None)
-        st.rerun()
 
 
-def _abrir_verificacion(email: str):
-    st.session_state["verificacion_pendiente"] = {"email": email}
+def _abrir_verificacion(email: str, enviado: bool = True):
+    st.session_state["verificacion_pendiente"] = {"email": email,
+                                                  "enviado": enviado}
     st.rerun()
 
 
@@ -150,10 +168,8 @@ def _form_registro():
     except ValueError as e:
         st.error(str(e))
         return
-    if not auth.enviar_codigo_verificacion(email, token):
-        st.warning("No se pudo enviar el correo de verificacion. Verifica la "
-                   "configuracion de correo (SMTP) o reenvia el codigo.")
-    _abrir_verificacion(email)
+    enviado = auth.enviar_codigo_verificacion(email, token)
+    _abrir_verificacion(email, enviado)
 
 
 def _form_registro_proveedor():
@@ -202,7 +218,5 @@ def _form_registro_proveedor():
     except ValueError as e:
         st.error(str(e))
         return
-    if not auth.enviar_codigo_verificacion(email, token):
-        st.warning("No se pudo enviar el correo de verificacion. Verifica la "
-                   "configuracion de correo (SMTP) o reenvia el codigo.")
-    _abrir_verificacion(email)
+    enviado = auth.enviar_codigo_verificacion(email, token)
+    _abrir_verificacion(email, enviado)

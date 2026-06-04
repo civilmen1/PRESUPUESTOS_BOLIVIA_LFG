@@ -154,9 +154,16 @@ def enviar_codigo_verificacion(email: str, token: str) -> bool:
             if settings.SMTP_USER:
                 s.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             s.sendmail(settings.SMTP_FROM, [email], msg.as_string())
+        logger.info("Código de verificación enviado correctamente a %s", email)
         return True
-    except Exception:
-        logger.exception("Error enviando código de verificación a %s", email)
+    except smtplib.SMTPAuthenticationError as exc:
+        logger.error("SMTP AUTENTICACION fallida para %s: revisa SMTP_USER y la "
+                     "CONTRASEÑA DE APLICACION de Gmail (sin espacios). %s",
+                     settings.SMTP_USER, exc)
+        return False
+    except Exception as exc:
+        logger.error("Error enviando código de verificación a %s: %s (%s)",
+                     email, exc, type(exc).__name__)
         return False
 
 
