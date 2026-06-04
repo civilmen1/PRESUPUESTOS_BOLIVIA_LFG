@@ -109,7 +109,7 @@ def main() -> None:
         st.rerun()
     st.sidebar.divider()
 
-    proyecto = selector_proyecto()
+    proyecto = selector_proyecto(usuario)
     st.sidebar.divider()
     seleccion = st.sidebar.radio("Navegación", list(PAGINAS_CONTRATISTA.keys()))
 

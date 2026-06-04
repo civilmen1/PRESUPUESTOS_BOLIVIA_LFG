@@ -35,6 +35,7 @@ class Proyecto:
     # Anticipo (afecta el Formulario B-5 desembolsos)
     solicita_anticipo: bool = False
     porcentaje_anticipo: float = 0.0   # ej. 0.20 = 20%
+    usuario_id: Optional[int] = None   # empresa/entidad dueña del proyecto
     fecha_creacion: Optional[str] = None
     estado: str = "activo"
 

@@ -14,7 +14,8 @@ from core import auth  # noqa: E402
 
 
 def _reset():
-    p = Path(os.environ["APU_DB_PATH"])
+    from config import settings
+    p = Path(settings.DB_PATH)
     if p.exists():
         p.unlink()
     init_db()

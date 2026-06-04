@@ -47,6 +47,8 @@ def render(proyecto):
         st.success("APUs generados.")
         st.rerun()
 
+    _seccion_difusion(proyecto)
+
     st.divider()
     for it in items:
         recursos = repositories.listar_recursos(it.id)
@@ -149,3 +151,37 @@ def _guardar_recursos(item, recursos_actuales, edit_df, proyecto):
     recursos = repositories.listar_recursos(item.id)
     resultado = apu_engine.calcular_resultado(item, recursos, proyecto)
     repositories.guardar_resultado(resultado)
+
+
+def _seccion_difusion(proyecto):
+    """Envía la demanda de materiales del proyecto a empresas proveedoras."""
+    import streamlit as st
+    from providers import demand_broadcast
+
+    usuario = st.session_state.get("usuario")
+    if not usuario:
+        return
+    with st.expander("📡 Enviar materiales a cotizar a empresas proveedoras"):
+        st.caption("Registra los materiales del proyecto en la base nacional y "
+                   "los envía por correo a las empresas que ofrecen esos "
+                   "materiales, con la cantidad, tipo y tus datos de contacto "
+                   "como posible comprador.")
+        mats = demand_broadcast.consolidar_materiales(proyecto.id)
+        if not mats:
+            st.info("Genera los APUs primero para tener materiales que difundir.")
+            return
+        import pandas as pd
+        st.dataframe(pd.DataFrame([{
+            "Material": m["descripcion"], "Tipo": m["tipo"],
+            "Unidad": m["unidad"], "Cantidad total": round(m["cantidad"], 2)}
+            for m in mats]), use_container_width=True, hide_index=True)
+        st.caption(f"Encargado de adquisiciones: **{usuario.encargado_nombre or '—'}** "
+                   f"· {usuario.email}")
+        if st.button("📨 Difundir demanda a proveedores", type="primary"):
+            comp = demand_broadcast.comprador_desde_usuario(usuario)
+            resumen = demand_broadcast.difundir_demanda(proyecto.id, comp,
+                                                        enviar_email=True)
+            st.success(
+                f"Demanda difundida: {resumen['materiales']} materiales, "
+                f"{resumen['correos_enviados']} correos a "
+                f"{resumen['proveedores']} proveedores.")

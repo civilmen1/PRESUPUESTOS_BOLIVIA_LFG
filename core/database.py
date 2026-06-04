@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS proyectos (
     plazo_dias INTEGER DEFAULT 180,
     solicita_anticipo INTEGER DEFAULT 0,
     porcentaje_anticipo REAL DEFAULT 0.0,
+    usuario_id INTEGER,
     fecha_creacion TEXT DEFAULT (datetime('now')),
     estado TEXT DEFAULT 'activo'
 );
@@ -246,6 +247,24 @@ CREATE TABLE IF NOT EXISTS usuarios (
     fecha_creacion TEXT DEFAULT (datetime('now')),
     ultimo_acceso TEXT
 );
+
+CREATE TABLE IF NOT EXISTS solicitudes_materiales (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    proyecto_id INTEGER,
+    usuario_id INTEGER,
+    empresa_compradora TEXT,
+    encargado_nombre TEXT,
+    encargado_email TEXT,
+    encargado_whatsapp TEXT,
+    descripcion TEXT,
+    tipo_material TEXT,
+    unidad TEXT,
+    cantidad REAL,
+    region TEXT,
+    estado TEXT DEFAULT 'pendiente',
+    fecha_creacion TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (proyecto_id) REFERENCES proyectos(id) ON DELETE CASCADE
+);
 """
 
 
@@ -291,6 +310,7 @@ _MIGRACIONES = {
         "plazo_dias": "INTEGER DEFAULT 180",
         "solicita_anticipo": "INTEGER DEFAULT 0",
         "porcentaje_anticipo": "REAL DEFAULT 0.0",
+        "usuario_id": "INTEGER",
     },
     "items": {
         "validado_tecnico": "INTEGER DEFAULT 0",

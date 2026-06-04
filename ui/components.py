@@ -7,10 +7,17 @@ from core import currency, repositories
 from models.project import Proyecto
 
 
-def selector_proyecto() -> Proyecto | None:
-    """Muestra en el sidebar el selector/creador de proyecto activo."""
+def selector_proyecto(usuario=None) -> Proyecto | None:
+    """Muestra en el sidebar el selector/creador de proyecto activo.
+
+    Todos los proyectos se registran a nombre de la EMPRESA logueada (`usuario`);
+    no se pregunta el nombre de la empresa al crear el proyecto.
+    """
     st.sidebar.header("📁 Proyecto")
-    proyectos = repositories.listar_proyectos()
+    uid = getattr(usuario, "id", None) if usuario else None
+    empresa = getattr(usuario, "nombre_empresa", "") if usuario else ""
+    proyectos = [p for p in repositories.listar_proyectos()
+                 if uid is None or p.usuario_id == uid]
     opciones = {f"{p.id} · {p.nombre}": p.id for p in proyectos}
 
     seleccion = None
@@ -20,10 +27,12 @@ def selector_proyecto() -> Proyecto | None:
         st.session_state["proyecto_id"] = seleccion
 
     with st.sidebar.expander("➕ Nuevo proyecto"):
+        if empresa:
+            st.caption(f"Proyecto a nombre de: **{empresa}**")
         with st.form("nuevo_proyecto", clear_on_submit=True):
             nombre = st.text_input("Nombre del proyecto")
             entidad = st.text_input("Entidad convocante")
-            proponente = st.text_input("Nombre de la empresa proponente")
+            proponente = empresa  # automático: la empresa logueada
             region = st.selectbox("Región (departamento)", [
                 "La Paz", "Santa Cruz", "Cochabamba", "Oruro", "Potosí",
                 "Tarija", "Chuquisaca", "Beni", "Pando"])
@@ -72,7 +81,7 @@ def selector_proyecto() -> Proyecto | None:
                     entidad=entidad, proponente=proponente,
                     representante_legal=rep_legal, ci_representante=ci_rep,
                     plazo_dias=int(plazo), solicita_anticipo=solicita_ant,
-                    porcentaje_anticipo=pct_ant,
+                    porcentaje_anticipo=pct_ant, usuario_id=uid,
                     factor_beneficios_sociales=bs, factor_iva_mano_obra=iva_mo,
                     factor_herramientas=herr, factor_gastos_generales=gg,
                     factor_utilidad_sabs=ut, factor_it=it))

@@ -29,15 +29,15 @@ def crear_proyecto(p: Proyecto) -> int:
                 factor_iva_mano_obra, factor_herramientas, factor_iva_equipo,
                 factor_gastos_generales, factor_utilidad_sabs, factor_it, entidad,
                 proponente, representante_legal, ci_representante, plazo_dias,
-                solicita_anticipo, porcentaje_anticipo, estado)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                solicita_anticipo, porcentaje_anticipo, usuario_id, estado)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (p.nombre, p.region, p.moneda, p.tipo_cambio, p.factor_indirectos,
              p.factor_utilidad, p.factor_impuestos, p.factor_beneficios_sociales,
              p.factor_iva_mano_obra, p.factor_herramientas, p.factor_iva_equipo,
              p.factor_gastos_generales, p.factor_utilidad_sabs, p.factor_it,
              p.entidad, p.proponente, p.representante_legal, p.ci_representante,
              p.plazo_dias, int(p.solicita_anticipo), p.porcentaje_anticipo,
-             p.estado),
+             p.usuario_id, p.estado),
         )
         return cur.lastrowid
 
