@@ -195,39 +195,53 @@ def reenviar_token(email: str) -> Optional[str]:
 
 
 # --------------------------------------------------------------------------- #
-# Verificación de NIT (Bolivia) vía API externa
+# Verificación de SEPREC (Registro de Comercio de Bolivia)
 # --------------------------------------------------------------------------- #
-def verificar_nit(nit: str) -> dict:
-    """Verifica un NIT boliviano vía API Verifik. Devuelve dict con resultado.
+def verificar_seprec(seprec: str) -> dict:
+    """Verifica un número de matrícula SEPREC.
 
-    {ok, razon_social, estado, actividad, fuente}. Si no hay token, ok=False.
+    Devuelve {ok, razon_social, estado, mensaje, fuente}.
+
+    Si se configura una API (SEPREC_API_URL, opcional con SEPREC_API_TOKEN), se
+    consulta en línea. Si no, valida el formato de la matrícula (debe ser
+    numérica de 6 a 12 dígitos) como verificación básica.
     """
-    nit = (nit or "").strip()
-    if not nit:
-        return {"ok": False, "mensaje": "NIT vacío"}
-    if not settings.VERIFIK_TOKEN:
-        return {"ok": False, "mensaje": "Verificación de NIT no configurada "
-                "(falta VERIFIK_TOKEN). Se puede verificar luego por email."}
-    try:
-        import requests
-        url = settings.VERIFIK_URL.format(nit=nit)
-        headers = {"Authorization": f"Bearer {settings.VERIFIK_TOKEN}"}
-        resp = requests.get(url, headers=headers, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        # la estructura exacta depende del proveedor; se extrae de forma flexible
-        d = data.get("data", data)
-        return {
-            "ok": True,
-            "razon_social": d.get("razonSocial") or d.get("nombre") or
-                            d.get("name", ""),
-            "estado": d.get("estado") or d.get("status", ""),
-            "actividad": d.get("actividadEconomica") or d.get("actividad", ""),
-            "fuente": "verifik",
-        }
-    except Exception as exc:
-        logger.exception("Error verificando NIT %s", nit)
-        return {"ok": False, "mensaje": f"No se pudo verificar el NIT: {exc}"}
+    seprec = (seprec or "").strip().replace("-", "").replace(" ", "")
+    if not seprec:
+        return {"ok": False, "mensaje": "Número de SEPREC vacío."}
+
+    api_url = settings.SEPREC_API_URL
+    if api_url:
+        try:
+            import requests
+            headers = {}
+            if settings.SEPREC_API_TOKEN:
+                headers["Authorization"] = f"Bearer {settings.SEPREC_API_TOKEN}"
+            resp = requests.get(api_url.format(seprec=seprec), headers=headers,
+                                timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            d = data.get("data", data)
+            return {
+                "ok": True,
+                "razon_social": d.get("razonSocial") or d.get("nombre") or
+                                d.get("razon_social", ""),
+                "estado": d.get("estado") or d.get("status", "VIGENTE"),
+                "mensaje": "SEPREC verificado en línea.",
+                "fuente": "seprec_api",
+            }
+        except Exception as exc:
+            logger.error("Error verificando SEPREC %s en línea: %s", seprec, exc)
+            return {"ok": False, "mensaje": f"No se pudo verificar el SEPREC en "
+                    f"línea: {exc}"}
+
+    # Sin API configurada: validación de formato.
+    if seprec.isdigit() and 6 <= len(seprec) <= 12:
+        return {"ok": True, "razon_social": "", "estado": "FORMATO VÁLIDO",
+                "mensaje": "Formato de SEPREC válido (verificación de formato).",
+                "fuente": "formato"}
+    return {"ok": False, "mensaje": "El número de SEPREC no tiene un formato "
+            "válido (debe ser numérico, de 6 a 12 dígitos)."}
 
 
 # --------------------------------------------------------------------------- #

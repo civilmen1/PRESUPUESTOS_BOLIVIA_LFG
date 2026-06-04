@@ -67,10 +67,12 @@ def test_codigo_verificacion_invalido():
     assert auth.verificar_email("z@x.bo", "999999") is False or True
 
 
-def test_nit_sin_token_no_rompe():
-    info = auth.verificar_nit("123456789")
-    assert info["ok"] is False
-    assert "mensaje" in info
+def test_verificar_seprec_formato():
+    # Sin API configurada, valida formato (numerico 6-12 digitos).
+    assert auth.verificar_seprec("123456")["ok"] is True
+    assert auth.verificar_seprec("abc")["ok"] is False
+    assert auth.verificar_seprec("")["ok"] is False
+    assert auth.verificar_seprec("12345")["ok"] is False  # muy corto
 
 
 def test_hash_password_no_reversible():

@@ -156,6 +156,10 @@ AUTH_SALT = os.getenv("AUTH_SALT", "apu-bolivia-salt-cambiar-en-produccion")
 # Verificación de NIT (Bolivia) vía API externa. Si no hay token, se omite.
 VERIFIK_TOKEN = os.getenv("VERIFIK_TOKEN", "")
 VERIFIK_URL = os.getenv("VERIFIK_URL", "https://api.verifik.co/v2/bo/nit/{nit}")
+# Verificación de SEPREC (Registro de Comercio). API opcional; si no se
+# configura, se valida el formato de la matrícula. La URL debe incluir {seprec}.
+SEPREC_API_URL = os.getenv("SEPREC_API_URL", "")
+SEPREC_API_TOKEN = os.getenv("SEPREC_API_TOKEN", "")
 # Verificación de correo: por defecto ENVÍA correos reales por SMTP (Google).
 # Para que funcione hay que configurar SMTP_USER/SMTP_PASSWORD (Gmail con
 # contraseña de aplicación). Si se pone en true, se simula (solo para desarrollo).

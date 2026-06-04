@@ -80,8 +80,9 @@ def _panel_verificacion(datos: dict):
             cancelar = c3.form_submit_button("Cancelar", use_container_width=True)
         if verificar:
             if auth.verificar_email(email, codigo.strip()):
-                st.session_state.pop("verificacion_pendiente", None)
-                st.success("Correo verificado. Ya puedes iniciar sesion.")
+                # Empresa verificada: limpiar TODO y volver al menu principal.
+                st.session_state.clear()
+                st.session_state["empresa_verificada"] = True
                 st.rerun()
             else:
                 st.error("Codigo incorrecto. Revisa tu correo e intenta de nuevo.")
@@ -120,7 +121,7 @@ def _form_registro():
         nombre = c1.text_input("Nombre de la empresa / entidad *")
         nit = c2.text_input("NIT")
         c3, c4 = st.columns(2)
-        seprec = c3.text_input("SEPREC (registro de comercio)")
+        seprec = c3.text_input("SEPREC (registro de comercio) *")
         direccion = c4.text_input("Direccion")
         st.markdown("**Encargado de compras / adquisiciones**")
         c5, c6 = st.columns(2)
@@ -129,15 +130,20 @@ def _form_registro():
         st.markdown("**Acceso**")
         c7, c8 = st.columns(2)
         email = c7.text_input("Correo electronico *")
-        password = c8.text_input("Contrasena * (min. 8, con letra y numero)",
+        c9, c10 = st.columns(2)
+        password = c9.text_input("Contrasena * (min. 8, con letra y numero)",
                                  type="password")
-        verificar_nit = st.checkbox("Verificar NIT automaticamente", value=True)
+        password2 = c10.text_input("Repetir contrasena *", type="password")
+        verificar = st.checkbox("Verificar SEPREC", value=True)
         enviado = st.form_submit_button("Registrar empresa", type="primary")
 
     if not enviado:
         return
-    if not (nombre and email and password):
+    if not (nombre and email and password and seprec):
         st.error("Completa los campos obligatorios (*).")
+        return
+    if password != password2:
+        st.error("Las contrasenas no coinciden. Vuelve a escribirlas igual.")
         return
     ok, msg = auth.validar_password(password)
     if not ok:
@@ -147,22 +153,23 @@ def _form_registro():
         st.error("Ya existe una cuenta con ese correo.")
         return
 
-    nit_info = {"ok": False}
-    if verificar_nit and nit and perfil == "contratista":
-        nit_info = auth.verificar_nit(nit)
-        if nit_info.get("ok"):
-            st.success(f"NIT verificado: {nit_info.get('razon_social')} "
-                       f"- {nit_info.get('estado')}")
+    sep_info = {"ok": False}
+    if verificar and seprec:
+        sep_info = auth.verificar_seprec(seprec)
+        if sep_info.get("ok"):
+            extra = (f": {sep_info.get('razon_social')}"
+                     if sep_info.get("razon_social") else "")
+            st.success(f"SEPREC verificado{extra} - {sep_info.get('estado')}")
         else:
-            st.warning(nit_info.get("mensaje", "No se pudo verificar el NIT; "
-                       "podras verificarlo luego."))
+            st.error(sep_info.get("mensaje", "No se pudo verificar el SEPREC."))
+            return
 
     u = auth.Usuario(
         perfil=perfil, nombre_empresa=nombre, nit=nit, seprec=seprec,
         direccion=direccion, email=email, encargado_nombre=enc_nombre,
-        encargado_whatsapp=enc_wsp, nit_verificado=nit_info.get("ok", False),
-        nit_razon_social=nit_info.get("razon_social", ""),
-        nit_estado=nit_info.get("estado", ""))
+        encargado_whatsapp=enc_wsp, nit_verificado=sep_info.get("ok", False),
+        nit_razon_social=sep_info.get("razon_social", ""),
+        nit_estado=sep_info.get("estado", ""))
     try:
         _uid, token = auth.registrar_usuario(u, password)
     except ValueError as e:
@@ -190,16 +197,20 @@ def _form_registro_proveedor():
         enc = c5.text_input("Nombre del encargado")
         wsp = c6.text_input("WhatsApp")
         st.markdown("**Acceso**")
+        email = st.text_input("Correo electronico *")
         c7, c8 = st.columns(2)
-        email = c7.text_input("Correo electronico *")
-        password = c8.text_input("Contrasena * (min. 8, con letra y numero)",
+        password = c7.text_input("Contrasena * (min. 8, con letra y numero)",
                                  type="password")
+        password2 = c8.text_input("Repetir contrasena *", type="password")
         enviado = st.form_submit_button("Registrar proveedor", type="primary")
 
     if not enviado:
         return
     if not (nombre and email and password):
         st.error("Completa los campos obligatorios (*).")
+        return
+    if password != password2:
+        st.error("Las contrasenas no coinciden. Vuelve a escribirlas igual.")
         return
     ok, msg = auth.validar_password(password)
     if not ok:

@@ -43,8 +43,11 @@ PAGINAS_CONTRATISTA = {
 
 def _pantalla_perfil() -> None:
     """Pantalla inicial de selección de perfil de acceso."""
-    st.markdown("<h1 style='text-align:center'> APU Bolivia Generator</h1>",
+    st.markdown("<h1 style='text-align:center'>APU Bolivia Generator</h1>",
                 unsafe_allow_html=True)
+    if st.session_state.pop("empresa_verificada", False):
+        st.success("Empresa verificada correctamente. Ya puedes iniciar sesion "
+                   "seleccionando tu perfil.")
     st.markdown("<p style='text-align:center'>Selecciona tu perfil de acceso</p>",
                 unsafe_allow_html=True)
     st.write("")
@@ -128,7 +131,7 @@ def main() -> None:
     st.sidebar.success(f" {usuario.nombre_empresa}")
     st.sidebar.caption(f"{usuario.email}")
     if usuario.nit_verificado:
-        st.sidebar.caption(f" NIT verificado: {usuario.nit_razon_social or usuario.nit}")
+        st.sidebar.caption(f"SEPREC verificado: {usuario.seprec}")
     if st.sidebar.button(" Cerrar sesión", use_container_width=True):
         st.session_state.pop("usuario", None)
         st.rerun()
