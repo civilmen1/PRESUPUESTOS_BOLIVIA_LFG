@@ -113,7 +113,10 @@ def extraer_estructurado(item_descripcion: str, spec: str, item_id: int = 0,
     # 1) Ollama local (gratis, sin tokens)
     if settings.USAR_OLLAMA and ollama_disponible():
         contenido = _ollama_json(prompt, modelo=settings.OLLAMA_MODEL)
-    # 2) GPT-4o (de pago) como alternativa
+    # 2) Gemini (nivel gratuito) — ideal para la nube
+    if not contenido and settings.GEMINI_API_KEY:
+        contenido = _gemini_json(prompt, modelo=settings.GEMINI_MODEL)
+    # 3) GPT-4o (de pago) como alternativa
     if not contenido and settings.OPENAI_API_KEY:
         contenido = _openai_json(prompt, modelo=settings.OPENAI_MODEL)
 
@@ -166,21 +169,31 @@ def analizar_planos(ruta_pdf: str, prompt: str = "") -> Optional[str]:
     """Análisis multimodal de un plano/PDF con Gemini (rol 3). None si no hay key."""
     if not settings.GEMINI_API_KEY:
         return None
+    instr = prompt or ("Analiza este plano/documento de construcción y lista "
+                       "las partidas, materiales y cantidades que identifiques.")
+    # SDK nuevo
+    try:
+        from google import genai as genai_new
+        client = genai_new.Client(api_key=settings.GEMINI_API_KEY)
+        archivo = client.files.upload(file=ruta_pdf)
+        resp = client.models.generate_content(
+            model=settings.GEMINI_MODEL, contents=[archivo, instr])
+        return resp.text
+    except ImportError:
+        pass
+    except Exception:
+        logger.exception("Error analizando planos con Gemini (SDK nuevo)")
+        return None
+    # SDK antiguo
     try:
         import google.generativeai as genai
-    except ImportError:
-        logger.warning("google-generativeai no instalado; no se analizan planos")
-        return None
-    try:
         genai.configure(api_key=settings.GEMINI_API_KEY)
         model = genai.GenerativeModel(settings.GEMINI_MODEL)
         archivo = genai.upload_file(ruta_pdf)
-        instr = prompt or ("Analiza este plano/documento de construcción y lista "
-                           "las partidas, materiales y cantidades que identifiques.")
         resp = model.generate_content([archivo, instr])
         return resp.text
     except Exception:
-        logger.exception("Error analizando planos con Gemini")
+        logger.exception("Error analizando planos con Gemini (SDK antiguo)")
         return None
 
 
@@ -239,6 +252,43 @@ def _ollama_json(prompt: str, modelo: str) -> Optional[str]:
         return resp.json().get("response", "")
     except Exception:
         logger.exception("Error llamando a Ollama (%s)", settings.OLLAMA_HOST)
+        return None
+
+
+def _gemini_json(prompt: str, modelo: str) -> Optional[str]:
+    """Llama a Gemini pidiendo respuesta en JSON. Soporta SDK nuevo y antiguo."""
+    # SDK nuevo: google-genai
+    try:
+        from google import genai as genai_new
+        try:
+            client = genai_new.Client(api_key=settings.GEMINI_API_KEY)
+            resp = client.models.generate_content(
+                model=modelo, contents=prompt,
+                config={"response_mime_type": "application/json",
+                        "temperature": 0.1})
+            return resp.text
+        except Exception:
+            logger.exception("Error llamando a Gemini (SDK nuevo)")
+            return None
+    except ImportError:
+        pass
+    # SDK antiguo: google-generativeai
+    try:
+        import google.generativeai as genai
+    except ImportError:
+        logger.warning("SDK de Gemini no instalado (google-genai o "
+                       "google-generativeai); omitiendo Gemini")
+        return None
+    try:
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        model = genai.GenerativeModel(modelo)
+        resp = model.generate_content(
+            prompt,
+            generation_config={"response_mime_type": "application/json",
+                               "temperature": 0.1})
+        return resp.text
+    except Exception:
+        logger.exception("Error llamando a Gemini (SDK antiguo)")
         return None
 
 

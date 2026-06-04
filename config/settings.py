@@ -134,7 +134,8 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-pro-exp")
+# Modelo Gemini del nivel GRATUITO (Flash). Pro es de pago desde 2026.
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 # LLM LOCAL GRATIS (Ollama): corre modelos en tu PC, sin tokens ni internet.
 # Instala Ollama (https://ollama.com) y un modelo: `ollama pull llama3.1`
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
