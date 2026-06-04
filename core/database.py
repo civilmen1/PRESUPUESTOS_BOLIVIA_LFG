@@ -207,6 +207,23 @@ CREATE TABLE IF NOT EXISTS contactos_email (
     observaciones TEXT,
     FOREIGN KEY (proveedor_id) REFERENCES proveedores(id) ON DELETE SET NULL
 );
+
+CREATE TABLE IF NOT EXISTS respuestas_cotizacion (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contacto_id INTEGER,
+    proveedor_id INTEGER,
+    descripcion TEXT,
+    unidad TEXT,
+    precio REAL,
+    moneda TEXT DEFAULT 'BOB',
+    plazo_entrega TEXT,
+    disponibilidad TEXT,
+    vigencia_dias INTEGER DEFAULT 30,
+    observaciones TEXT,
+    fecha_respuesta TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (contacto_id) REFERENCES contactos_email(id) ON DELETE CASCADE,
+    FOREIGN KEY (proveedor_id) REFERENCES proveedores(id) ON DELETE SET NULL
+);
 """
 
 

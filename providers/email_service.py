@@ -155,3 +155,49 @@ def pendientes_recordatorio(dias: int = settings.EMAIL_RECORDATORIO_DIAS) -> Lis
             (dias,),
         ).fetchall()
         return [dict(f) for f in filas]
+
+
+# --------------------------------------------------------------------------- #
+# Portal del PROVEEDOR: ver solicitudes y responder cotizaciones
+# --------------------------------------------------------------------------- #
+def solicitudes_de_proveedor(proveedor_id: int) -> List[dict]:
+    """Lista las solicitudes de cotización recibidas por un proveedor."""
+    with db_session() as conn:
+        filas = conn.execute(
+            """SELECT * FROM contactos_email
+               WHERE proveedor_id=? ORDER BY fecha_envio DESC""",
+            (proveedor_id,)).fetchall()
+        return [dict(f) for f in filas]
+
+
+def guardar_respuesta_cotizacion(contacto_id: int, proveedor_id: int,
+                                 descripcion: str, unidad: str, precio: float,
+                                 moneda: str = "BOB", plazo_entrega: str = "",
+                                 disponibilidad: str = "",
+                                 vigencia_dias: int = 30,
+                                 observaciones: str = "") -> int:
+    """Registra el precio cotizado por un proveedor para un material."""
+    with db_session() as conn:
+        cur = conn.execute(
+            """INSERT INTO respuestas_cotizacion
+               (contacto_id, proveedor_id, descripcion, unidad, precio, moneda,
+                plazo_entrega, disponibilidad, vigencia_dias, observaciones)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (contacto_id, proveedor_id, descripcion, unidad, precio, moneda,
+             plazo_entrega, disponibilidad, vigencia_dias, observaciones))
+        # marca el contacto como respondido
+        conn.execute(
+            """UPDATE contactos_email SET respondio=1,
+               fecha_respuesta=datetime('now'), estado='respondido' WHERE id=?""",
+            (contacto_id,))
+        return cur.lastrowid
+
+
+def respuestas_de_proveedor(proveedor_id: int) -> List[dict]:
+    """Historial de cotizaciones enviadas por un proveedor."""
+    with db_session() as conn:
+        filas = conn.execute(
+            """SELECT * FROM respuestas_cotizacion
+               WHERE proveedor_id=? ORDER BY fecha_respuesta DESC""",
+            (proveedor_id,)).fetchall()
+        return [dict(f) for f in filas]
