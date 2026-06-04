@@ -255,58 +255,56 @@ def _consultar_seprec_api(seprec: str):
     if settings.SEPREC_API_TOKEN:
         headers["Authorization"] = f"Bearer {settings.SEPREC_API_TOKEN}"
 
-    # Si la URL trae {seprec}, se usa tal cual; si no, se prueban variantes
-    # comunes: matricula al final de la ruta o como parametro de consulta.
+    # Solo la forma con la matricula en la ruta funciona (las demas dan 500).
     if "{seprec}" in base:
-        intentos = [(base.format(seprec=seprec), None)]
+        url = base.format(seprec=seprec)
     else:
-        b = base.rstrip("/")
-        intentos = [
-            (f"{b}/{seprec}", None),
-            (b, {"matricula": seprec}),
-            (b, {"nroMatricula": seprec}),
-        ]
+        url = f"{base.rstrip('/')}/{seprec}"
 
-    for url, params in intentos:
-        try:
-            resp = requests.get(url, headers=headers, params=params, timeout=15)
-            if resp.status_code != 200:
-                continue
-            data = resp.json()
-            return _interpretar_seprec(data, seprec)
-        except Exception as exc:
-            logger.warning("SEPREC API intento fallido (%s): %s", url, exc)
-            continue
-    logger.error("No se pudo consultar la API del SEPREC para %s", seprec)
-    return None
+    try:
+        resp = requests.get(url, headers=headers, timeout=15)
+        if resp.status_code != 200:
+            logger.warning("SEPREC API HTTP %s para %s", resp.status_code, seprec)
+            return None
+        return _interpretar_seprec(resp.json(), seprec)
+    except Exception as exc:
+        logger.error("No se pudo consultar la API del SEPREC para %s: %s",
+                     seprec, exc)
+        return None
 
 
 def _interpretar_seprec(data, seprec: str) -> dict:
-    """Interpreta la respuesta JSON de la API del SEPREC de forma flexible."""
-    d = data.get("data", data) if isinstance(data, dict) else {}
-    if isinstance(d, list):
-        d = d[0] if d else {}
-    texto = str(data).lower()
+    """Interpreta la respuesta JSON de la API oficial del SEPREC.
 
-    # Razon social y estado (nombres flexibles segun la respuesta real).
-    razon = (d.get("razonSocial") or d.get("razon_social") or d.get("nombre") or
-             d.get("nombreComercial") or "")
-    estado = str(d.get("estado") or d.get("estadoHabilitacion") or
-                 d.get("habilitado") or d.get("status") or "").upper()
+    Estructura real:
+      {"finalizado": true, "mensaje": "...",
+       "datos": {"estado": "ACTIVO", "matricula": "...", "estadoConsulta": "..."}}
+    Si la matricula no existe, "datos.estadoConsulta" contiene "No se encontro".
+    """
+    datos = (data or {}).get("datos", {}) if isinstance(data, dict) else {}
+    estado_consulta = str(datos.get("estadoConsulta", ""))
+    consulta_norm = estado_consulta.lower()
 
-    # Determinar si esta habilitada.
-    no_encontrado = ("no se encontr" in texto or "not found" in texto or
-                     d.get("encontrado") is False)
-    habilitada = (not no_encontrado and (
-        bool(razon) or estado in ("HABILITADA", "VIGENTE", "ACTIVA", "ACTIVO",
-                                  "TRUE", "1") or d.get("habilitado") in (True, 1)))
+    no_encontrada = ("no se encontr" in consulta_norm)
+    if no_encontrada or not datos:
+        return {"ok": False, "estado": "NO ENCONTRADA",
+                "mensaje": estado_consulta or "La matricula no se encontro en el "
+                "SEPREC. Verifica el numero.", "fuente": "seprec_api"}
 
-    if no_encontrado or (not habilitada and not razon):
-        return {"ok": False, "estado": estado or "NO ENCONTRADO",
-                "mensaje": "La matricula no se encontro o no esta habilitada en "
-                "el SEPREC.", "fuente": "seprec_api"}
-    return {"ok": True, "razon_social": razon, "estado": estado or "HABILITADA",
-            "mensaje": "Matricula verificada en el SEPREC.", "fuente": "seprec_api"}
+    estado = str(datos.get("estado", "")).upper()
+    matricula = str(datos.get("matricula", seprec))
+    habilitada = ("habilitada" in consulta_norm or estado in ("ACTIVO", "ACTIVA",
+                  "HABILITADA", "VIGENTE"))
+
+    if not habilitada:
+        return {"ok": False, "estado": estado or "NO HABILITADA",
+                "mensaje": estado_consulta or "La empresa no esta habilitada.",
+                "fuente": "seprec_api"}
+
+    return {"ok": True, "razon_social": "", "estado": estado or "ACTIVO",
+            "matricula": matricula,
+            "mensaje": "Empresa habilitada en el SEPREC.",
+            "fuente": "seprec_api"}
 
 
 # --------------------------------------------------------------------------- #

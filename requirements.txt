@@ -28,9 +28,10 @@ beautifulsoup4>=4.12
 # anthropic>=0.40       # Claude Sonnet (interpretación normativa NB)
 # google-generativeai>=0.8  # Gemini (análisis multimodal de planos PDF)
 
-# --- Verificación de SEPREC automatizando el portal (opcional) ---
-# Requiere ademas: playwright install chromium
-playwright>=1.40
+# --- Verificación de SEPREC ---
+# La verificacion usa la API oficial (servicios.seprec.gob.bo) con requests.
+# Playwright es OPCIONAL, solo si activas SEPREC_USAR_NAVEGADOR como respaldo:
+# playwright>=1.40
 
 # --- Exportación PDF ---
 reportlab>=4.0

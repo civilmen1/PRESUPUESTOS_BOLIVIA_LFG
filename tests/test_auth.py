@@ -101,3 +101,22 @@ def test_validar_password():
     assert auth.validar_password("sololetras")[0] is False    # sin número
     assert auth.validar_password("12345678")[0] is False      # sin letra
     assert auth.validar_password("clave1234")[0] is True      # ok
+
+
+def test_interpretar_seprec_no_encontrada():
+    data = {"finalizado": True, "mensaje": "ok",
+            "datos": {"estadoConsulta": "No se encontró la matrícula ingresada, "
+                      "verifica y vuelve a intentar"}}
+    r = auth._interpretar_seprec(data, "5042325017")
+    assert r["ok"] is False
+    assert r["fuente"] == "seprec_api"
+
+
+def test_interpretar_seprec_habilitada():
+    data = {"finalizado": True, "mensaje": "ok",
+            "datos": {"estado": "ACTIVO", "matricula": "5042325016",
+                      "estadoConsulta": "Tu empresa se encuentra habilitada, ..."}}
+    r = auth._interpretar_seprec(data, "5042325016")
+    assert r["ok"] is True
+    assert r["estado"] == "ACTIVO"
+    assert r["matricula"] == "5042325016"

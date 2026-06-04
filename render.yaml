@@ -38,9 +38,9 @@ services:
       # o OpenAI en la nube; Ollama local no aplica en Render).
       - key: USAR_LLM
         value: "true"
-      # Verificacion de SEPREC consultando el portal oficial con navegador.
+      # Verificacion de SEPREC via API oficial (no requiere navegador).
       - key: SEPREC_USAR_NAVEGADOR
-        value: "true"
+        value: "false"
       # Configura estos en el panel de Render (no se versionan):
       - key: SMTP_PORT
         value: "587"
