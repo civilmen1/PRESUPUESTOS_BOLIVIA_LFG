@@ -1,0 +1,46 @@
+# =============================================================================
+#  APU Bolivia Generator — despliegue con Docker Compose (VPS / servidor)
+#
+#  Uso:
+#    docker compose up -d        # levanta la app en segundo plano
+#    docker compose logs -f      # ver registros
+#    docker compose down         # detener
+#
+#  La base de datos y los archivos quedan en el volumen 'apu_data' (persistente,
+#  compartido por todos los usuarios que acceden a esta única instancia).
+# =============================================================================
+services:
+  app:
+    build: .
+    container_name: apu_bolivia
+    restart: unless-stopped
+    ports:
+      - "8501:8501"          # accede en http://TU_SERVIDOR:8501
+    volumes:
+      - apu_data:/data       # base de datos persistente
+      - apu_exports:/app/exports
+      - apu_uploads:/app/uploads
+    environment:
+      APU_DB_PATH: /data/proveedores.db
+      # --- Configura estos valores para producción ---
+      AUTH_SALT: "CAMBIA-ESTO-por-un-valor-secreto"
+      AUTH_EMAIL_DRY_RUN: "true"   # pon false y configura SMTP para correos reales
+      EMAIL_DRY_RUN: "true"
+      SCRAPER_DRY_RUN: "true"
+      # SMTP (para verificación de correo y cotizaciones reales)
+      # SMTP_HOST: smtp.gmail.com
+      # SMTP_PORT: "587"
+      # SMTP_USER: tu-correo@gmail.com
+      # SMTP_PASSWORD: tu-app-password
+      # SMTP_FROM: tu-correo@gmail.com
+      # Verificación de NIT (Bolivia)
+      # VERIFIK_TOKEN: tu-token
+      # IA local (si corres Ollama en el mismo servidor o accesible)
+      # USAR_LLM: "true"
+      # USAR_OLLAMA: "true"
+      # OLLAMA_HOST: http://ollama:11434
+
+volumes:
+  apu_data:
+  apu_exports:
+  apu_uploads:

@@ -1,0 +1,41 @@
+# =============================================================================
+#  Despliegue en Render.com (https://render.com) — un clic desde tu repo de Git.
+#
+#  Pasos:
+#   1. Sube el repo a GitHub.
+#   2. En Render: New + → Blueprint → conecta tu repositorio.
+#   3. Render leerá este archivo y creará el servicio con disco persistente.
+#   4. Configura las variables marcadas como sync:false en el panel de Render.
+# =============================================================================
+services:
+  - type: web
+    name: apu-bolivia-generator
+    runtime: docker
+    plan: starter            # ajusta el plan según necesidad
+    healthCheckPath: /_stcore/health
+    disk:
+      name: apu-data
+      mountPath: /data       # base de datos persistente compartida
+      sizeGB: 1
+    envVars:
+      - key: APU_DB_PATH
+        value: /data/proveedores.db
+      - key: AUTH_SALT
+        generateValue: true   # Render genera un secreto seguro
+      - key: AUTH_EMAIL_DRY_RUN
+        value: "true"
+      - key: EMAIL_DRY_RUN
+        value: "true"
+      - key: SCRAPER_DRY_RUN
+        value: "true"
+      # Configura estos en el panel de Render (no se versionan):
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: VERIFIK_TOKEN
+        sync: false
