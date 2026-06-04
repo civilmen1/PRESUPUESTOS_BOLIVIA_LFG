@@ -198,18 +198,32 @@ def reenviar_token(email: str) -> Optional[str]:
 # Verificación de SEPREC (Registro de Comercio de Bolivia)
 # --------------------------------------------------------------------------- #
 def verificar_seprec(seprec: str) -> dict:
-    """Verifica un número de matrícula SEPREC.
+    """Verifica un numero de matricula SEPREC.
 
+    Orden de verificacion:
+      1. Portal oficial automatizado con navegador (si SEPREC_USAR_NAVEGADOR).
+      2. API configurada (SEPREC_API_URL), si existe.
+      3. Validacion de formato (numerico de 6 a 12 digitos).
     Devuelve {ok, razon_social, estado, mensaje, fuente}.
-
-    Si se configura una API (SEPREC_API_URL, opcional con SEPREC_API_TOKEN), se
-    consulta en línea. Si no, valida el formato de la matrícula (debe ser
-    numérica de 6 a 12 dígitos) como verificación básica.
     """
     seprec = (seprec or "").strip().replace("-", "").replace(" ", "")
     if not seprec:
-        return {"ok": False, "mensaje": "Número de SEPREC vacío."}
+        return {"ok": False, "mensaje": "Numero de SEPREC vacio."}
 
+    # 1) Portal oficial con navegador
+    if settings.SEPREC_USAR_NAVEGADOR:
+        try:
+            from core.seprec_verifier import verificar_seprec_navegador
+            res = verificar_seprec_navegador(seprec)
+            # Si el portal dio una respuesta concluyente (encontrado o no), se usa.
+            if res.get("fuente") in ("seprec_portal",):
+                return res
+            logger.info("SEPREC navegador no concluyente (%s); se usa respaldo",
+                        res.get("fuente"))
+        except Exception as exc:
+            logger.error("Fallo verificacion SEPREC por navegador: %s", exc)
+
+    # 2) API configurada
     api_url = settings.SEPREC_API_URL
     if api_url:
         try:
@@ -227,21 +241,19 @@ def verificar_seprec(seprec: str) -> dict:
                 "razon_social": d.get("razonSocial") or d.get("nombre") or
                                 d.get("razon_social", ""),
                 "estado": d.get("estado") or d.get("status", "VIGENTE"),
-                "mensaje": "SEPREC verificado en línea.",
+                "mensaje": "SEPREC verificado en linea.",
                 "fuente": "seprec_api",
             }
         except Exception as exc:
-            logger.error("Error verificando SEPREC %s en línea: %s", seprec, exc)
-            return {"ok": False, "mensaje": f"No se pudo verificar el SEPREC en "
-                    f"línea: {exc}"}
+            logger.error("Error verificando SEPREC %s en linea: %s", seprec, exc)
 
-    # Sin API configurada: validación de formato.
+    # 3) Validacion de formato
     if seprec.isdigit() and 6 <= len(seprec) <= 12:
-        return {"ok": True, "razon_social": "", "estado": "FORMATO VÁLIDO",
-                "mensaje": "Formato de SEPREC válido (verificación de formato).",
+        return {"ok": True, "razon_social": "", "estado": "FORMATO VALIDO",
+                "mensaje": "Formato de SEPREC valido (verificacion de formato).",
                 "fuente": "formato"}
-    return {"ok": False, "mensaje": "El número de SEPREC no tiene un formato "
-            "válido (debe ser numérico, de 6 a 12 dígitos)."}
+    return {"ok": False, "mensaje": "El numero de SEPREC no tiene un formato "
+            "valido (debe ser numerico, de 6 a 12 digitos)."}
 
 
 # --------------------------------------------------------------------------- #

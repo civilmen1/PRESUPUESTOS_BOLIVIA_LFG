@@ -160,6 +160,10 @@ VERIFIK_URL = os.getenv("VERIFIK_URL", "https://api.verifik.co/v2/bo/nit/{nit}")
 # configura, se valida el formato de la matrícula. La URL debe incluir {seprec}.
 SEPREC_API_URL = os.getenv("SEPREC_API_URL", "")
 SEPREC_API_TOKEN = os.getenv("SEPREC_API_TOKEN", "")
+# Verificar consultando el portal oficial con navegador (Playwright). Requiere
+# instalar playwright y el navegador chromium en el entorno.
+SEPREC_USAR_NAVEGADOR = os.getenv("SEPREC_USAR_NAVEGADOR", "false").lower() in {
+    "1", "true", "yes"}
 # Verificación de correo: por defecto ENVÍA correos reales por SMTP (Google).
 # Para que funcione hay que configurar SMTP_USER/SMTP_PASSWORD (Gmail con
 # contraseña de aplicación). Si se pone en true, se simula (solo para desarrollo).

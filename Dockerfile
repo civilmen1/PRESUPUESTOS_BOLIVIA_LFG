@@ -17,6 +17,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# Navegador para la verificación de SEPREC (Playwright + Chromium y sus libs).
+# Si no usarás verificación de SEPREC por navegador, puedes quitar esta línea
+# para una imagen más liviana.
+RUN playwright install --with-deps chromium || true
+
 # Copiar el código
 COPY . .
 
