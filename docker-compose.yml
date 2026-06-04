@@ -17,11 +17,12 @@ services:
     ports:
       - "8501:8501"          # accede en http://TU_SERVIDOR:8501
     volumes:
-      - apu_data:/data       # base de datos persistente
-      - apu_exports:/app/exports
-      - apu_uploads:/app/uploads
+      - apu_data:/data       # base de datos y archivos persistentes
     environment:
       APU_DB_PATH: /data/proveedores.db
+      APU_EXPORT_DIR: /data/exports
+      APU_UPLOAD_DIR: /data/uploads
+      APU_LOG_DIR: /data/logs
       # --- Configura estos valores para producción ---
       AUTH_SALT: "CAMBIA-ESTO-por-un-valor-secreto"
       AUTH_EMAIL_DRY_RUN: "true"   # pon false y configura SMTP para correos reales
@@ -42,5 +43,3 @@ services:
 
 volumes:
   apu_data:
-  apu_exports:
-  apu_uploads:

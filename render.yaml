@@ -20,6 +20,12 @@ services:
     envVars:
       - key: APU_DB_PATH
         value: /data/proveedores.db
+      - key: APU_EXPORT_DIR
+        value: /data/exports
+      - key: APU_UPLOAD_DIR
+        value: /data/uploads
+      - key: APU_LOG_DIR
+        value: /data/logs
       - key: AUTH_SALT
         generateValue: true   # Render genera un secreto seguro
       - key: AUTH_EMAIL_DRY_RUN

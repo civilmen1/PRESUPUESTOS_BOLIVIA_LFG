@@ -21,12 +21,17 @@ except Exception:  # pragma: no cover - dotenv es opcional
 # --------------------------------------------------------------------------- #
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
-EXPORT_DIR = BASE_DIR / "exports"
-UPLOAD_DIR = BASE_DIR / "uploads"
-LOG_DIR = BASE_DIR / "logs"
+# Carpetas de trabajo configurables (en la nube conviene apuntarlas al disco
+# persistente, p.ej. /data/exports, para no depender de permisos en /app).
+EXPORT_DIR = Path(os.getenv("APU_EXPORT_DIR", BASE_DIR / "exports"))
+UPLOAD_DIR = Path(os.getenv("APU_UPLOAD_DIR", BASE_DIR / "uploads"))
+LOG_DIR = Path(os.getenv("APU_LOG_DIR", BASE_DIR / "logs"))
 
 for _d in (DATA_DIR, EXPORT_DIR, UPLOAD_DIR, LOG_DIR):
-    _d.mkdir(parents=True, exist_ok=True)
+    try:
+        _d.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass  # en entornos read-only la carpeta ya debe existir (volumen)
 
 # Base de datos (SQLite local por defecto; preparado para PostgreSQL futuro)
 DB_PATH = Path(os.getenv("APU_DB_PATH", DATA_DIR / "proveedores.db"))
