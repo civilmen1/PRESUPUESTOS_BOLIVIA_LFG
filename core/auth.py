@@ -1,0 +1,211 @@
+"""Autenticación de empresas y entidades (login, registro, verificación).
+
+Funciones:
+  - registrar_usuario: alta de empresa/entidad con datos requeridos.
+  - hash de contraseñas con PBKDF2 (sin dependencias externas).
+  - verificación de correo por código (token enviado por email; en modo
+    AUTH_EMAIL_DRY_RUN el código se muestra para pruebas).
+  - verificación de NIT vía API externa (Verifik); para entidades públicas se
+    valida por email.
+  - login: solo permite acceder si el correo está verificado.
+"""
+from __future__ import annotations
+
+import hashlib
+import secrets
+from dataclasses import dataclass
+from typing import Optional
+
+from config import settings
+from config.logging_config import get_logger
+from core.database import db_session
+
+logger = get_logger(__name__)
+
+
+@dataclass
+class Usuario:
+    id: Optional[int] = None
+    perfil: str = "contratista"        # contratista | entidad | proveedor
+    nombre_empresa: str = ""
+    nit: str = ""
+    seprec: str = ""
+    direccion: str = ""
+    email: str = ""
+    encargado_nombre: str = ""
+    encargado_whatsapp: str = ""
+    email_verificado: bool = False
+    nit_verificado: bool = False
+    nit_razon_social: str = ""
+    nit_estado: str = ""
+    estado: str = "activo"
+
+
+# --------------------------------------------------------------------------- #
+# Hash de contraseñas (PBKDF2-HMAC-SHA256)
+# --------------------------------------------------------------------------- #
+def _hash_password(password: str) -> str:
+    sal = settings.AUTH_SALT.encode("utf-8")
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), sal, 120_000)
+    return dk.hex()
+
+
+def _verificar_password(password: str, hash_guardado: str) -> bool:
+    return secrets.compare_digest(_hash_password(password), hash_guardado or "")
+
+
+# --------------------------------------------------------------------------- #
+# Registro
+# --------------------------------------------------------------------------- #
+def email_existe(email: str) -> bool:
+    with db_session() as conn:
+        r = conn.execute("SELECT 1 FROM usuarios WHERE lower(email)=lower(?)",
+                         (email.strip(),)).fetchone()
+        return r is not None
+
+
+def registrar_usuario(u: Usuario, password: str) -> tuple[Optional[int], str]:
+    """Registra una empresa/entidad. Devuelve (id, token_verificacion).
+
+    Genera un token de verificación de correo. El usuario NO podrá entrar hasta
+    verificar el correo con ese token.
+    """
+    if email_existe(u.email):
+        raise ValueError("Ya existe una cuenta con ese correo electrónico.")
+    token = f"{secrets.randbelow(1000000):06d}"  # código de 6 dígitos
+    with db_session() as conn:
+        cur = conn.execute(
+            """INSERT INTO usuarios
+               (perfil, nombre_empresa, nit, seprec, direccion, email,
+                encargado_nombre, encargado_whatsapp, password_hash,
+                token_verificacion, nit_verificado, nit_razon_social, nit_estado)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (u.perfil, u.nombre_empresa, u.nit, u.seprec, u.direccion,
+             u.email.strip(), u.encargado_nombre, u.encargado_whatsapp,
+             _hash_password(password), token, int(u.nit_verificado),
+             u.nit_razon_social, u.nit_estado))
+        return cur.lastrowid, token
+
+
+# --------------------------------------------------------------------------- #
+# Verificación de correo
+# --------------------------------------------------------------------------- #
+def enviar_codigo_verificacion(email: str, token: str) -> bool:
+    """Envía el código de verificación por correo (o lo simula en dry-run)."""
+    if settings.AUTH_EMAIL_DRY_RUN:
+        logger.info("[DRY-RUN] Código de verificación para %s: %s", email, token)
+        return True
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        msg = MIMEText(
+            f"Su código de verificación para {settings.APP_NAME} es: {token}",
+            "plain", "utf-8")
+        msg["Subject"] = f"Verificación de correo - {settings.APP_NAME}"
+        msg["From"] = settings.SMTP_FROM
+        msg["To"] = email
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as s:
+            s.starttls()
+            if settings.SMTP_USER:
+                s.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            s.sendmail(settings.SMTP_FROM, [email], msg.as_string())
+        return True
+    except Exception:
+        logger.exception("Error enviando código de verificación a %s", email)
+        return False
+
+
+def verificar_email(email: str, token: str) -> bool:
+    """Marca el correo como verificado si el token coincide."""
+    with db_session() as conn:
+        r = conn.execute(
+            "SELECT token_verificacion FROM usuarios WHERE lower(email)=lower(?)",
+            (email.strip(),)).fetchone()
+        if not r or not r["token_verificacion"]:
+            return False
+        if secrets.compare_digest(str(r["token_verificacion"]), str(token).strip()):
+            conn.execute(
+                """UPDATE usuarios SET email_verificado=1, token_verificacion=NULL
+                   WHERE lower(email)=lower(?)""", (email.strip(),))
+            return True
+    return False
+
+
+def reenviar_token(email: str) -> Optional[str]:
+    """Genera y devuelve un nuevo token de verificación para el correo."""
+    token = f"{secrets.randbelow(1000000):06d}"
+    with db_session() as conn:
+        cur = conn.execute(
+            """UPDATE usuarios SET token_verificacion=?
+               WHERE lower(email)=lower(?) AND email_verificado=0""",
+            (token, email.strip()))
+        return token if cur.rowcount else None
+
+
+# --------------------------------------------------------------------------- #
+# Verificación de NIT (Bolivia) vía API externa
+# --------------------------------------------------------------------------- #
+def verificar_nit(nit: str) -> dict:
+    """Verifica un NIT boliviano vía API Verifik. Devuelve dict con resultado.
+
+    {ok, razon_social, estado, actividad, fuente}. Si no hay token, ok=False.
+    """
+    nit = (nit or "").strip()
+    if not nit:
+        return {"ok": False, "mensaje": "NIT vacío"}
+    if not settings.VERIFIK_TOKEN:
+        return {"ok": False, "mensaje": "Verificación de NIT no configurada "
+                "(falta VERIFIK_TOKEN). Se puede verificar luego por email."}
+    try:
+        import requests
+        url = settings.VERIFIK_URL.format(nit=nit)
+        headers = {"Authorization": f"Bearer {settings.VERIFIK_TOKEN}"}
+        resp = requests.get(url, headers=headers, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+        # la estructura exacta depende del proveedor; se extrae de forma flexible
+        d = data.get("data", data)
+        return {
+            "ok": True,
+            "razon_social": d.get("razonSocial") or d.get("nombre") or
+                            d.get("name", ""),
+            "estado": d.get("estado") or d.get("status", ""),
+            "actividad": d.get("actividadEconomica") or d.get("actividad", ""),
+            "fuente": "verifik",
+        }
+    except Exception as exc:
+        logger.exception("Error verificando NIT %s", nit)
+        return {"ok": False, "mensaje": f"No se pudo verificar el NIT: {exc}"}
+
+
+# --------------------------------------------------------------------------- #
+# Login
+# --------------------------------------------------------------------------- #
+def login(email: str, password: str) -> tuple[Optional[Usuario], str]:
+    """Autentica un usuario. Devuelve (Usuario, mensaje).
+
+    Falla si el correo no está verificado.
+    """
+    with db_session() as conn:
+        r = conn.execute("SELECT * FROM usuarios WHERE lower(email)=lower(?)",
+                         (email.strip(),)).fetchone()
+    if not r:
+        return None, "No existe una cuenta con ese correo."
+    if not _verificar_password(password, r["password_hash"]):
+        return None, "Contraseña incorrecta."
+    if not r["email_verificado"]:
+        return None, "Debes verificar tu correo electrónico antes de ingresar."
+    if r["estado"] != "activo":
+        return None, "La cuenta no está activa."
+    with db_session() as conn:
+        conn.execute("UPDATE usuarios SET ultimo_acceso=datetime('now') WHERE id=?",
+                     (r["id"],))
+    u = Usuario(
+        id=r["id"], perfil=r["perfil"], nombre_empresa=r["nombre_empresa"],
+        nit=r["nit"] or "", seprec=r["seprec"] or "", direccion=r["direccion"] or "",
+        email=r["email"], encargado_nombre=r["encargado_nombre"] or "",
+        encargado_whatsapp=r["encargado_whatsapp"] or "",
+        email_verificado=True, nit_verificado=bool(r["nit_verificado"]),
+        nit_razon_social=r["nit_razon_social"] or "", nit_estado=r["nit_estado"] or "",
+        estado=r["estado"])
+    return u, "Bienvenido."

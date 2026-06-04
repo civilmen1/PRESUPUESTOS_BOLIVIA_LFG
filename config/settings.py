@@ -142,3 +142,16 @@ USAR_LLM = os.getenv("USAR_LLM", "false").lower() in {"1", "true", "yes"}
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 APP_NAME = "APU Bolivia Generator"
 APP_VERSION = "0.1.0"
+
+# --------------------------------------------------------------------------- #
+# Autenticación / login de empresas y entidades
+# --------------------------------------------------------------------------- #
+# Sal global para el hash de contraseñas (cámbiala en producción).
+AUTH_SALT = os.getenv("AUTH_SALT", "apu-bolivia-salt-cambiar-en-produccion")
+# Verificación de NIT (Bolivia) vía API externa. Si no hay token, se omite.
+VERIFIK_TOKEN = os.getenv("VERIFIK_TOKEN", "")
+VERIFIK_URL = os.getenv("VERIFIK_URL", "https://api.verifik.co/v2/bo/nit/{nit}")
+# Si está activo, la verificación de correo se simula (no envía correo real);
+# el código/token de verificación se muestra en pantalla para pruebas.
+AUTH_EMAIL_DRY_RUN = os.getenv("AUTH_EMAIL_DRY_RUN", "true").lower() in {
+    "1", "true", "yes"}

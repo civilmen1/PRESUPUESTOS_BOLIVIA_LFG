@@ -224,6 +224,27 @@ CREATE TABLE IF NOT EXISTS respuestas_cotizacion (
     FOREIGN KEY (contacto_id) REFERENCES contactos_email(id) ON DELETE CASCADE,
     FOREIGN KEY (proveedor_id) REFERENCES proveedores(id) ON DELETE SET NULL
 );
+
+CREATE TABLE IF NOT EXISTS usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    perfil TEXT DEFAULT 'contratista',     -- contratista | entidad | proveedor
+    nombre_empresa TEXT NOT NULL,
+    nit TEXT,
+    seprec TEXT,
+    direccion TEXT,
+    email TEXT NOT NULL UNIQUE,
+    encargado_nombre TEXT,
+    encargado_whatsapp TEXT,
+    password_hash TEXT NOT NULL,
+    email_verificado INTEGER DEFAULT 0,
+    token_verificacion TEXT,
+    nit_verificado INTEGER DEFAULT 0,
+    nit_razon_social TEXT,
+    nit_estado TEXT,
+    estado TEXT DEFAULT 'activo',
+    fecha_creacion TEXT DEFAULT (datetime('now')),
+    ultimo_acceso TEXT
+);
 """
 
 

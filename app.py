@@ -14,8 +14,9 @@ import streamlit as st
 from config import settings
 from config.logging_config import setup_logging
 from core.database import init_db
-from ui import (apu_page, dashboard, documents_page, export_page, items_page,
-                linking_page, provider_portal, quotations_page, suppliers_page)
+from ui import (apu_page, auth_page, dashboard, documents_page, export_page,
+                items_page, linking_page, provider_portal, quotations_page,
+                suppliers_page)
 from ui.components import selector_proyecto
 
 
@@ -89,8 +90,21 @@ def main() -> None:
         provider_portal.render()
         return
 
-    # Perfil contratista
-    st.sidebar.success("Perfil: 🏢 Contratista / Entidad")
+    # Perfil contratista / entidad: requiere login con cuenta verificada.
+    usuario = st.session_state.get("usuario")
+    if not usuario:
+        auth_page.render_login()
+        return
+
+    st.sidebar.success(f"🏢 {usuario.nombre_empresa}")
+    st.sidebar.caption(f"{usuario.email}")
+    if usuario.nit_verificado:
+        st.sidebar.caption(f"✅ NIT verificado: {usuario.nit_razon_social or usuario.nit}")
+    if st.sidebar.button("🚪 Cerrar sesión", use_container_width=True):
+        st.session_state.pop("usuario", None)
+        st.rerun()
+    st.sidebar.divider()
+
     proyecto = selector_proyecto()
     st.sidebar.divider()
     seleccion = st.sidebar.radio("Navegación", list(PAGINAS_CONTRATISTA.keys()))
