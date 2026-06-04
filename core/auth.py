@@ -39,6 +39,7 @@ class Usuario:
     nit_razon_social: str = ""
     nit_estado: str = ""
     estado: str = "activo"
+    proveedor_id: Optional[int] = None
 
 
 # --------------------------------------------------------------------------- #
@@ -78,13 +79,35 @@ def registrar_usuario(u: Usuario, password: str) -> tuple[Optional[int], str]:
             """INSERT INTO usuarios
                (perfil, nombre_empresa, nit, seprec, direccion, email,
                 encargado_nombre, encargado_whatsapp, password_hash,
-                token_verificacion, nit_verificado, nit_razon_social, nit_estado)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                token_verificacion, nit_verificado, nit_razon_social, nit_estado,
+                proveedor_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (u.perfil, u.nombre_empresa, u.nit, u.seprec, u.direccion,
              u.email.strip(), u.encargado_nombre, u.encargado_whatsapp,
              _hash_password(password), token, int(u.nit_verificado),
-             u.nit_razon_social, u.nit_estado))
+             u.nit_razon_social, u.nit_estado, u.proveedor_id))
         return cur.lastrowid, token
+
+
+def registrar_proveedor_con_cuenta(u: Usuario, password: str,
+                                   categoria: str = "otros",
+                                   materiales: str = "", ciudad: str = "",
+                                   telefono: str = "") -> tuple[int, str]:
+    """Registra un proveedor: crea su ficha en 'proveedores' y su cuenta de login.
+
+    Devuelve (usuario_id, token). El usuario queda vinculado a su proveedor_id.
+    """
+    from models.supplier import Proveedor
+    from providers import supplier_service
+    pid = supplier_service.alta_manual(Proveedor(
+        nombre=u.nombre_empresa, nit=u.nit, email=u.email, telefono=telefono,
+        whatsapp=u.encargado_whatsapp or telefono, region=u.nit_estado or "",
+        ciudad=ciudad, direccion=u.direccion, categoria=categoria,
+        materiales_servicios=materiales))
+    u.perfil = "proveedor"
+    u.proveedor_id = pid
+    uid, token = registrar_usuario(u, password)
+    return uid, token
 
 
 # --------------------------------------------------------------------------- #
@@ -207,5 +230,5 @@ def login(email: str, password: str) -> tuple[Optional[Usuario], str]:
         encargado_whatsapp=r["encargado_whatsapp"] or "",
         email_verificado=True, nit_verificado=bool(r["nit_verificado"]),
         nit_razon_social=r["nit_razon_social"] or "", nit_estado=r["nit_estado"] or "",
-        estado=r["estado"])
+        estado=r["estado"], proveedor_id=r["proveedor_id"])
     return u, "Bienvenido."

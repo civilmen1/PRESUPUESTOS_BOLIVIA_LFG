@@ -201,3 +201,25 @@ def respuestas_de_proveedor(proveedor_id: int) -> List[dict]:
                WHERE proveedor_id=? ORDER BY fecha_respuesta DESC""",
             (proveedor_id,)).fetchall()
         return [dict(f) for f in filas]
+
+
+def buscar_respuestas_cotizacion(descripcion: str) -> List[dict]:
+    """Busca respuestas de proveedores que coincidan con una descripción.
+
+    Estas cotizaciones (precio confirmado por el proveedor) alimentan el
+    cotizador como fuente de Nivel 3 (email confirmado), con prioridad sobre
+    la búsqueda web.
+    """
+    from core.text_cleaner import normalizar
+    palabras = [w for w in normalizar(descripcion).split() if len(w) >= 3]
+    with db_session() as conn:
+        filas = conn.execute(
+            """SELECT rc.*, p.nombre AS proveedor_nombre, p.region AS region
+               FROM respuestas_cotizacion rc
+               LEFT JOIN proveedores p ON rc.proveedor_id = p.id""").fetchall()
+    out = []
+    for f in filas:
+        desc = normalizar(f["descripcion"] or "")
+        if palabras and any(w in desc for w in palabras):
+            out.append(dict(f))
+    return out

@@ -85,15 +85,19 @@ def main() -> None:
         st.rerun()
     st.sidebar.divider()
 
-    if perfil == "proveedor":
-        st.sidebar.info("Perfil: 🏭 Proveedor")
-        provider_portal.render()
-        return
-
-    # Perfil contratista / entidad: requiere login con cuenta verificada.
+    # Ambos perfiles requieren login con cuenta verificada.
     usuario = st.session_state.get("usuario")
     if not usuario:
-        auth_page.render_login()
+        auth_page.render_login(perfil=perfil)
+        return
+
+    if perfil == "proveedor":
+        st.sidebar.success(f"🏭 {usuario.nombre_empresa}")
+        st.sidebar.caption(usuario.email)
+        if st.sidebar.button("🚪 Cerrar sesión", use_container_width=True):
+            st.session_state.pop("usuario", None)
+            st.rerun()
+        provider_portal.render(usuario)
         return
 
     st.sidebar.success(f"🏢 {usuario.nombre_empresa}")

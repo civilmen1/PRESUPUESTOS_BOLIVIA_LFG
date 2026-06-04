@@ -77,3 +77,17 @@ def test_hash_password_no_reversible():
     assert h != "clave" and len(h) == 64
     assert auth._verificar_password("clave", h) is True
     assert auth._verificar_password("otra", h) is False
+
+
+def test_registro_proveedor_con_cuenta():
+    _reset()
+    u = auth.Usuario(perfil="proveedor", nombre_empresa="Ferre SRL",
+                     email="f@ferre.bo", encargado_whatsapp="777")
+    uid, token = auth.registrar_proveedor_con_cuenta(
+        u, "clave", categoria="ferreteria", materiales="cemento")
+    assert uid
+    auth.verificar_email("f@ferre.bo", token)
+    usr, _ = auth.login("f@ferre.bo", "clave")
+    assert usr is not None
+    assert usr.perfil == "proveedor"
+    assert usr.proveedor_id is not None

@@ -100,6 +100,24 @@ def cotizar_recurso(
                                 "precio": precio_final})
 
     # --------------------------------------------------------------------- #
+    # NIVEL 3 (respuestas reales): cotizaciones que los proveedores ya
+    # respondieron en su portal. Tienen prioridad sobre la web.
+    # --------------------------------------------------------------------- #
+    if not fuentes and tipo == TIPO_MATERIAL:
+        from providers.email_service import buscar_respuestas_cotizacion
+        for rc in buscar_respuestas_cotizacion(descripcion):
+            precio_h, _ = homologar_precio(rc["precio"], rc.get("unidad", unidad),
+                                           unidad)
+            precio_final = precio_h if precio_h is not None else rc["precio"]
+            fuentes.append(FuentePrecio(
+                precio=precio_final, nivel=NIVEL_EMAIL, fecha=rc.get("fecha_respuesta"),
+                fuente=f"email:{rc.get('proveedor_nombre') or 'proveedor'}",
+                proveedor_id=rc.get("proveedor_id")))
+            detalle.append({"nivel": 3, "fuente": "email_respondido",
+                            "precio": precio_final,
+                            "proveedor": rc.get("proveedor_nombre")})
+
+    # --------------------------------------------------------------------- #
     # NIVEL 2: Búsqueda web (solo materiales, si no hay nada en BD)
     # --------------------------------------------------------------------- #
     if not fuentes and permitir_web and tipo == TIPO_MATERIAL:

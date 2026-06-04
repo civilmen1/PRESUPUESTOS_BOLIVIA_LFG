@@ -242,6 +242,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     nit_razon_social TEXT,
     nit_estado TEXT,
     estado TEXT DEFAULT 'activo',
+    proveedor_id INTEGER,
     fecha_creacion TEXT DEFAULT (datetime('now')),
     ultimo_acceso TEXT
 );
@@ -293,6 +294,9 @@ _MIGRACIONES = {
     },
     "items": {
         "validado_tecnico": "INTEGER DEFAULT 0",
+    },
+    "usuarios": {
+        "proveedor_id": "INTEGER",
     },
 }
 
