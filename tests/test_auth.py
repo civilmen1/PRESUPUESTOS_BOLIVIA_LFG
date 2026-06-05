@@ -120,3 +120,21 @@ def test_interpretar_seprec_habilitada():
     assert r["ok"] is True
     assert r["estado"] == "ACTIVO"
     assert r["matricula"] == "5042325016"
+
+
+def test_recuperacion_password():
+    _reset()
+    u = auth.Usuario(nombre_empresa="X", email="rec@x.bo", seprec="123456")
+    _uid, tok = auth.registrar_usuario(u, "clave1234")
+    auth.verificar_email("rec@x.bo", tok)
+    # generar y restablecer
+    t = auth.generar_token_recuperacion("rec@x.bo")
+    assert t is not None
+    ok, _ = auth.restablecer_password("rec@x.bo", t, "nueva5678")
+    assert ok is True
+    res, _ = auth.login("rec@x.bo", "nueva5678")
+    assert res is not None
+    # codigo incorrecto
+    assert auth.restablecer_password("rec@x.bo", "000000", "otra1234")[0] is False
+    # correo inexistente
+    assert auth.generar_token_recuperacion("nadie@x.bo") is None

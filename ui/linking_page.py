@@ -63,15 +63,27 @@ def render(proyecto):
                "dentro de ese módulo. Los módulos solo agrupan y no se vinculan.")
     col1, col2 = st.columns([1, 1])
     top_k = col1.slider("Coincidencias por ítem", 1, 5, 3)
-    if col2.button(" Ejecutar vinculación inteligente", type="primary"):
+    if col2.button("Ejecutar vinculación inteligente", type="primary"):
+        from core import apu_engine
         matcher = SemanticMatcher(secciones)
-        with st.spinner("Buscando módulo y especificación de cada ítem..."):
-            for it in items_reales:
-                repositories.borrar_vinculos_item(it.id)
-                for v in matcher.buscar(it, top_k=top_k,
-                                        modulo_nombre=modulos.get(it.id, "")):
-                    repositories.guardar_vinculo(v)
-        st.success("Vinculación completada.")
+        prog = st.progress(0.0, text="Vinculando y armando recursos con IA...")
+        n = len(items_reales) or 1
+        for i, it in enumerate(items_reales):
+            # 1) vincular modulo -> item
+            repositories.borrar_vinculos_item(it.id)
+            for v in matcher.buscar(it, top_k=top_k,
+                                    modulo_nombre=modulos.get(it.id, "")):
+                repositories.guardar_vinculo(v)
+            # 2) armar recursos con IA (segun contexto) y 3) validar el item
+            try:
+                apu_engine.armar_recursos_desde_analisis(it)
+                repositories.set_validacion_tecnica(it.id, True)
+            except Exception:
+                pass
+            prog.progress((i + 1) / n,
+                          text=f"Procesando {i + 1}/{n}: {it.descripcion[:40]}")
+        st.success("Vinculación completada. Todos los ítems quedaron armados y "
+                   "validados. Revisa y modifica los que desees.")
         st.rerun()
 
     # Resumen de validación del proyecto
@@ -80,11 +92,11 @@ def render(proyecto):
     st.progress(validados_tot / total if total else 0.0,
                 text=f"Ítems validados técnicamente: {validados_tot} / {total}")
     if validados_tot < total:
-        st.warning(" La cotización y los precios unitarios **no podrán "
-                   "generarse** hasta validar técnicamente todos los ítems.")
+        st.warning("Hay ítems sin validar. Revisa sus tablas (materiales, mano "
+                   "de obra y equipo) y valida los pendientes para poder cotizar.")
     else:
-        st.success(" Todos los ítems están validados. Ya puedes pasar a "
-                   "**APUs / Cotización**.")
+        st.success("Todos los ítems están validados. Ya puedes pasar a "
+                   "Cotización y generación de precios unitarios.")
     st.divider()
 
     modulo_actual = None

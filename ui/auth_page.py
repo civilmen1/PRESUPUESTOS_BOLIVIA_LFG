@@ -25,7 +25,8 @@ def render_login(perfil: str = "contratista"):
         _panel_verificacion(pend)
 
     etiqueta_reg = "Registrar proveedor" if es_proveedor else "Registrar empresa"
-    tab_login, tab_registro = st.tabs(["Iniciar sesion", etiqueta_reg])
+    tab_login, tab_registro, tab_recuperar = st.tabs(
+        ["Iniciar sesion", etiqueta_reg, "Olvide mi contrasena"])
 
     with tab_login:
         with st.form("login"):
@@ -49,6 +50,9 @@ def render_login(perfil: str = "contratista"):
                         st.session_state["verificacion_pendiente"] = {
                             "email": email, "enviado": False}
                         st.rerun()
+
+    with tab_recuperar:
+        _form_recuperar()
 
     with tab_registro:
         if es_proveedor:
@@ -231,3 +235,47 @@ def _form_registro_proveedor():
         return
     enviado = auth.enviar_codigo_verificacion(email, token)
     _abrir_verificacion(email, enviado)
+
+
+def _form_recuperar():
+    """Recuperacion de contrasena: envia codigo y permite poner una nueva."""
+    st.caption("Te enviaremos un codigo a tu correo para restablecer tu "
+               "contrasena.")
+    if "recuperar_email" not in st.session_state:
+        with st.form("recuperar_envio"):
+            email = st.text_input("Correo electronico de tu cuenta")
+            if st.form_submit_button("Enviar codigo", type="primary",
+                                     use_container_width=True):
+                token = auth.generar_token_recuperacion(email)
+                if token is None:
+                    st.error("No existe una cuenta con ese correo.")
+                elif auth.enviar_codigo_recuperacion(email, token):
+                    st.session_state["recuperar_email"] = email
+                    st.rerun()
+                else:
+                    st.error("No se pudo enviar el correo. Intenta mas tarde.")
+    else:
+        email = st.session_state["recuperar_email"]
+        st.info(f"Enviamos un codigo a {email}. Ingresalo y define tu nueva "
+                "contrasena (min. 8, con letra y numero).")
+        with st.form("recuperar_cambio"):
+            codigo = st.text_input("Codigo de recuperacion", max_chars=6)
+            nueva = st.text_input("Nueva contrasena", type="password")
+            nueva2 = st.text_input("Repetir nueva contrasena", type="password")
+            c1, c2 = st.columns(2)
+            cambiar = c1.form_submit_button("Cambiar contrasena", type="primary",
+                                            use_container_width=True)
+            cancelar = c2.form_submit_button("Cancelar", use_container_width=True)
+        if cambiar:
+            if nueva != nueva2:
+                st.error("Las contrasenas no coinciden.")
+            else:
+                ok, msg = auth.restablecer_password(email, codigo.strip(), nueva)
+                if ok:
+                    st.session_state.pop("recuperar_email", None)
+                    st.success(msg)
+                else:
+                    st.error(msg)
+        if cancelar:
+            st.session_state.pop("recuperar_email", None)
+            st.rerun()

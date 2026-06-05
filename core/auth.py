@@ -195,6 +195,76 @@ def reenviar_token(email: str) -> Optional[str]:
 
 
 # --------------------------------------------------------------------------- #
+# Recuperación de contraseña
+# --------------------------------------------------------------------------- #
+def generar_token_recuperacion(email: str) -> Optional[str]:
+    """Genera un código para recuperar la contraseña de una cuenta existente.
+
+    Devuelve el código (6 dígitos) si el correo existe, o None si no existe.
+    Reutiliza la columna token_verificacion como código temporal.
+    """
+    email = (email or "").strip()
+    with db_session() as conn:
+        r = conn.execute("SELECT 1 FROM usuarios WHERE lower(email)=lower(?)",
+                         (email,)).fetchone()
+        if not r:
+            return None
+        token = f"{secrets.randbelow(1000000):06d}"
+        conn.execute("UPDATE usuarios SET token_verificacion=? "
+                     "WHERE lower(email)=lower(?)", (token, email))
+        return token
+
+
+def enviar_codigo_recuperacion(email: str, token: str) -> bool:
+    """Envía el código de recuperación de contraseña por correo."""
+    if settings.AUTH_EMAIL_DRY_RUN:
+        logger.info("[DRY-RUN] Código de recuperación para %s: %s", email, token)
+        return True
+    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+        logger.warning("SMTP no configurado: no se envía recuperación a %s", email)
+        return False
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        cuerpo = (f"Recibimos una solicitud para restablecer tu contraseña en "
+                  f"{settings.APP_NAME}.\n\nTu código de recuperación es: {token}"
+                  f"\n\nSi no lo solicitaste, ignora este mensaje.")
+        msg = MIMEText(cuerpo, "plain", "utf-8")
+        msg["Subject"] = f"Recuperación de contraseña - {settings.APP_NAME}"
+        msg["From"] = settings.SMTP_FROM
+        msg["To"] = email
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as s:
+            s.starttls()
+            if settings.SMTP_USER:
+                s.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            s.sendmail(settings.SMTP_FROM, [email], msg.as_string())
+        return True
+    except Exception as exc:
+        logger.error("Error enviando recuperación a %s: %s", email, exc)
+        return False
+
+
+def restablecer_password(email: str, token: str, nueva: str) -> tuple[bool, str]:
+    """Cambia la contraseña si el código coincide. Devuelve (ok, mensaje)."""
+    ok, msg = validar_password(nueva)
+    if not ok:
+        return False, msg
+    email = (email or "").strip()
+    with db_session() as conn:
+        r = conn.execute("SELECT token_verificacion FROM usuarios "
+                         "WHERE lower(email)=lower(?)", (email,)).fetchone()
+        if not r or not r["token_verificacion"]:
+            return False, "No hay una solicitud de recuperación para ese correo."
+        if not secrets.compare_digest(str(r["token_verificacion"]),
+                                      str(token).strip()):
+            return False, "Código incorrecto."
+        conn.execute("UPDATE usuarios SET password_hash=?, token_verificacion=NULL,"
+                     " email_verificado=1 WHERE lower(email)=lower(?)",
+                     (_hash_password(nueva), email))
+    return True, "Contraseña actualizada. Ya puedes iniciar sesión."
+
+
+# --------------------------------------------------------------------------- #
 # Verificación de SEPREC (Registro de Comercio de Bolivia)
 # --------------------------------------------------------------------------- #
 def verificar_seprec(seprec: str) -> dict:

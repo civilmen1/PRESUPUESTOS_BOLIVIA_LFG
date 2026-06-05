@@ -24,14 +24,25 @@ def render(proyecto):
     if not proyecto.representante_legal:
         st.info(" Define el representante legal y el plazo/anticipo al crear el "
                 "proyecto para que los formularios salgan completos.")
-    if st.button(" Generar Formularios oficiales (Excel)", type="primary",
-                 use_container_width=True):
+    cgen, cprev = st.columns(2)
+    if cgen.button("Generar Formularios oficiales (Excel)", type="primary",
+                   use_container_width=True):
         ruta = exportar_formularios(proyecto.id)
+        st.session_state["ruta_formularios"] = str(ruta)
         with open(ruta, "rb") as fh:
             st.download_button(
-                " Descargar Formularios B-1 a B-5", fh, file_name=ruta.name,
+                "Descargar Formularios B-1 a B-5", fh, file_name=ruta.name,
                 mime="application/vnd.openxmlformats-officedocument."
                      "spreadsheetml.sheet", use_container_width=True)
+
+    if cprev.button("Vista previa de formularios", use_container_width=True):
+        ruta = exportar_formularios(proyecto.id)
+        st.session_state["ruta_formularios"] = str(ruta)
+        st.session_state["mostrar_preview"] = True
+
+    if st.session_state.get("mostrar_preview") and \
+            st.session_state.get("ruta_formularios"):
+        _vista_previa(st.session_state["ruta_formularios"])
 
     st.divider()
     st.subheader("Otras exportaciones")
@@ -57,3 +68,24 @@ def render(proyecto):
                                mime="application/json", use_container_width=True)
 
     st.caption("Las exportaciones incluyen trazabilidad técnica y de cotización.")
+
+
+def _vista_previa(ruta: str):
+    """Muestra en pantalla cada formulario (hoja del Excel) como una tabla."""
+    import pandas as pd
+    st.markdown("#### Vista previa de los formularios")
+    try:
+        hojas = pd.read_excel(ruta, sheet_name=None, header=None, engine="openpyxl")
+    except Exception as exc:
+        st.error(f"No se pudo leer el archivo de formularios: {exc}")
+        return
+    nombres = list(hojas.keys())
+    tabs = st.tabs(nombres)
+    for tab, nombre in zip(tabs, nombres):
+        with tab:
+            df = hojas[nombre].fillna("")
+            st.dataframe(df, use_container_width=True, hide_index=True,
+                         height=420)
+    if st.button("Cerrar vista previa"):
+        st.session_state["mostrar_preview"] = False
+        st.rerun()
