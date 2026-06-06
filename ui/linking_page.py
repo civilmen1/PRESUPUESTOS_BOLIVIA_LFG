@@ -45,23 +45,23 @@ def render(proyecto):
     except Exception as exc:
         st.warning(f"No se pudo determinar el estado de la IA: {exc}")
 
-    # Prueba directa de la IA: confirma que el modelo responde de verdad.
+    # Prueba directa de la IA: confirma que el modelo responde de verdad y, si
+    # falla, explica el motivo exacto (clave, modelo, cuota o red).
     with st.expander("Probar la IA (diagnostico)"):
         if st.button("Ejecutar prueba de IA"):
-            from core.llm_extractor import _gemini_json
-            from config import settings as _s
-            prompt = ('Devuelve SOLO este JSON: {"recursos":[{"tipo":"material",'
-                      '"descripcion":"Cemento","unidad":"kg","cantidad":1}]}')
-            with st.spinner("Llamando a Gemini..."):
-                r = _gemini_json(prompt, _s.GEMINI_MODEL)
-            if r:
-                st.success("La IA respondio correctamente. Modelo: " +
-                           _s.GEMINI_MODEL)
-                st.code(r[:500])
+            from core.llm_extractor import diagnosticar_gemini
+            with st.spinner("Diagnosticando la conexion con Gemini..."):
+                d = diagnosticar_gemini()
+            if d["ok"]:
+                st.success(d["mensaje"])
             else:
-                st.error("La IA NO respondio (revisa GEMINI_API_KEY, el modelo '" +
-                         _s.GEMINI_MODEL + "', o los Logs de Render). Mientras "
-                         "tanto se usan plantillas genericas.")
+                st.error(d["mensaje"])
+                if d["modelos"]:
+                    st.info("Modelos habilitados para tu clave (usa uno en "
+                            "GEMINI_MODEL):")
+                    st.code("\n".join(d["modelos"]))
+                st.caption("Tras corregir la variable en Render, vuelve a "
+                           "desplegar y repite esta prueba.")
 
     items = repositories.listar_items(proyecto.id)
     secciones = repositories.listar_secciones(proyecto.id)

@@ -327,6 +327,77 @@ def _gemini_json(prompt: str, modelo: str) -> Optional[str]:
     return None
 
 
+def diagnosticar_gemini() -> dict:
+    """Diagnostico detallado de la conexion con Gemini.
+
+    Devuelve {ok, mensaje, modelos} con el motivo EXACTO si falla (clave
+    invalida, modelo inexistente, cuota agotada, red), para no quedarse con un
+    generico 'no respondio'.
+    """
+    out = {"ok": False, "mensaje": "", "modelos": []}
+    if not settings.GEMINI_API_KEY:
+        out["mensaje"] = ("No hay GEMINI_API_KEY configurada. Agregala en el "
+                          "panel de Render (Environment) y vuelve a desplegar.")
+        return out
+    try:
+        import requests
+    except ImportError:
+        out["mensaje"] = "Falta la libreria 'requests' en el servidor."
+        return out
+
+    modelo = settings.GEMINI_MODEL
+    base = "https://generativelanguage.googleapis.com/v1beta"
+    cuerpo = {"contents": [{"parts": [{"text": "Responde solo: OK"}]}]}
+    try:
+        resp = requests.post(f"{base}/models/{modelo}:generateContent",
+                             params={"key": settings.GEMINI_API_KEY},
+                             json=cuerpo, timeout=settings.GEMINI_TIMEOUT)
+    except Exception as exc:
+        out["mensaje"] = f"No se pudo conectar con Gemini (red): {exc}"
+        return out
+
+    if resp.status_code == 200:
+        out["ok"] = True
+        out["mensaje"] = f"Conexion correcta. El modelo '{modelo}' responde."
+        return out
+
+    # Hubo error: interpretar el codigo y, si aplica, listar modelos validos.
+    detalle = ""
+    try:
+        detalle = resp.json().get("error", {}).get("message", "")
+    except Exception:
+        detalle = resp.text[:300]
+    cod = resp.status_code
+    if cod in (400, 403) and ("API key" in detalle or "API_KEY" in detalle
+                              or cod == 403):
+        guia = ("La clave GEMINI_API_KEY parece invalida o sin permisos. "
+                "Genera una nueva en https://aistudio.google.com/apikey y "
+                "ponla en Render.")
+    elif cod == 404:
+        guia = (f"El modelo '{modelo}' no existe o no esta habilitado para tu "
+                "clave. Cambia GEMINI_MODEL por uno de la lista de abajo.")
+    elif cod == 429:
+        guia = ("Cuota o limite de tasa agotado (429). Espera unos minutos o "
+                "revisa tu plan en Google AI Studio.")
+    else:
+        guia = f"Error HTTP {cod}."
+    out["mensaje"] = f"{guia}  Detalle: {detalle[:200]}"
+
+    # Listar modelos disponibles para la clave (ayuda a corregir GEMINI_MODEL).
+    try:
+        lst = requests.get(f"{base}/models",
+                           params={"key": settings.GEMINI_API_KEY}, timeout=15)
+        if lst.status_code == 200:
+            for m in lst.json().get("models", []):
+                metodos = m.get("supportedGenerationMethods", [])
+                if "generateContent" in metodos:
+                    out["modelos"].append(m.get("name", "").replace(
+                        "models/", ""))
+    except Exception:
+        pass
+    return out
+
+
 def _openai_json(prompt: str, modelo: str) -> Optional[str]:
     try:
         from openai import OpenAI
