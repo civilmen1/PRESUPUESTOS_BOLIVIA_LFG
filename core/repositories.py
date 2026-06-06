@@ -345,6 +345,33 @@ def borrar_recursos_item(item_id: int) -> None:
             "DELETE FROM recursos_apu WHERE item_id=? AND bloqueado=0", (item_id,))
 
 
+def purgar_apu_proyecto(proyecto_id: int) -> dict:
+    """Borra TODOS los recursos, resultados, cotizaciones y validaciones de un
+    proyecto, para regenerar el APU desde cero con la version actual (IA).
+
+    NO borra los ítems ni los documentos técnicos. Devuelve un resumen.
+    """
+    with db_session() as conn:
+        ids = [r["id"] for r in conn.execute(
+            "SELECT id FROM items WHERE proyecto_id=?", (proyecto_id,)).fetchall()]
+        if not ids:
+            return {"items": 0, "recursos": 0, "resultados": 0}
+        marcas = ",".join("?" * len(ids))
+        rec = conn.execute(
+            f"DELETE FROM recursos_apu WHERE item_id IN ({marcas})", ids).rowcount
+        res = conn.execute(
+            f"DELETE FROM resultados_apu WHERE item_id IN ({marcas})", ids).rowcount
+        # Cotizaciones ligadas a recursos del proyecto (ya borrados): limpiar
+        # las huerfanas por seguridad.
+        conn.execute("DELETE FROM cotizaciones WHERE recurso_id NOT IN "
+                     "(SELECT id FROM recursos_apu)")
+        # Quitar la validacion tecnica para que se revaliden con lo nuevo.
+        conn.execute(
+            f"UPDATE items SET validado_tecnico=0, estado='pendiente' "
+            f"WHERE id IN ({marcas})", ids)
+        return {"items": len(ids), "recursos": rec, "resultados": res}
+
+
 # --------------------------------------------------------------------------- #
 # Resultados APU
 # --------------------------------------------------------------------------- #

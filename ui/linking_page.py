@@ -79,6 +79,22 @@ def render(proyecto):
     st.caption(" Búsqueda jerárquica tipo IA: 1) localiza el **módulo** del "
                "ítem en el documento, 2) busca la **especificación del ítem** "
                "dentro de ese módulo. Los módulos solo agrupan y no se vinculan.")
+
+    # Purga: borra los recursos/precios viejos para regenerar desde cero.
+    with st.expander("Purgar y regenerar desde cero (si hay generaciones malas)"):
+        st.caption("Borra todos los recursos, precios, cotizaciones y "
+                   "validaciones del proyecto (NO borra los ítems ni los "
+                   "documentos). Útil para descartar resultados genéricos viejos "
+                   "y regenerar todo con la versión actual (IA).")
+        confirmar = st.checkbox("Confirmo que deseo purgar este proyecto")
+        if st.button("Purgar APU del proyecto", disabled=not confirmar):
+            resumen = repositories.purgar_apu_proyecto(proyecto.id)
+            st.success(f"Purgado: {resumen['recursos']} recursos y "
+                       f"{resumen['resultados']} resultados de "
+                       f"{resumen['items']} ítems. Ahora ejecuta la vinculación "
+                       "inteligente para regenerar con IA.")
+            st.rerun()
+
     col1, col2 = st.columns([1, 1])
     top_k = col1.slider("Coincidencias por ítem", 1, 5, 3)
     if col2.button("Ejecutar vinculación inteligente", type="primary"):
