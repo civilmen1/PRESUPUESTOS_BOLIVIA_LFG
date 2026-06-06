@@ -62,6 +62,24 @@ def crear_modulo(proyecto_id: int, nombre: str, orden: int = 0) -> int:
         return cur.lastrowid
 
 
+def actualizar_incidencias(proyecto_id: int, **factores) -> None:
+    """Actualiza los factores (incidencias indirectas) de un proyecto.
+
+    Acepta: factor_beneficios_sociales, factor_iva_mano_obra, factor_herramientas,
+    factor_iva_equipo, factor_gastos_generales, factor_utilidad_sabs, factor_it.
+    """
+    permitidos = {"factor_beneficios_sociales", "factor_iva_mano_obra",
+                  "factor_herramientas", "factor_iva_equipo",
+                  "factor_gastos_generales", "factor_utilidad_sabs", "factor_it"}
+    cambios = {k: v for k, v in factores.items() if k in permitidos}
+    if not cambios:
+        return
+    sets = ", ".join(f"{k}=?" for k in cambios)
+    with db_session() as conn:
+        conn.execute(f"UPDATE proyectos SET {sets} WHERE id=?",
+                     (*cambios.values(), proyecto_id))
+
+
 def obtener_o_crear_modulo(proyecto_id: int, nombre: str) -> Optional[int]:
     nombre = (nombre or "").strip()
     if not nombre:

@@ -61,3 +61,35 @@ def test_sin_recursos_da_cero():
     d = calcular_desglose([], _proyecto())
     assert d.precio_unitario_total == 0.0
     assert d.costo_directo == 0.0
+
+
+def test_recalcular_con_incidencias(tmp_path, monkeypatch):
+    import os
+    db = tmp_path / "recalc.db"
+    monkeypatch.setenv("APU_DB_PATH", str(db))
+    from config import settings as s
+    monkeypatch.setattr(s, "DB_PATH", db)
+    from core.database import init_db
+    from core import repositories, apu_engine
+    from models.project import Proyecto
+    from models.item import Item
+    from models.apu_resource import RecursoAPU, TIPO_MATERIAL, TIPO_MANO_OBRA
+    init_db()
+    pid = repositories.crear_proyecto(Proyecto(nombre="R", factor_utilidad_sabs=0.10))
+    iid = repositories.crear_item(Item(proyecto_id=pid, numero="1",
+                                       descripcion="X", unidad="m3", cantidad=2))
+    repositories.guardar_recurso(RecursoAPU(item_id=iid, tipo=TIPO_MATERIAL,
+                                            descripcion="Cemento", unidad="kg",
+                                            cantidad_apu=1, precio_unitario=100,
+                                            subtotal=100))
+    repositories.guardar_recurso(RecursoAPU(item_id=iid, tipo=TIPO_MANO_OBRA,
+                                            descripcion="Albanil", unidad="hora",
+                                            cantidad_apu=1, precio_unitario=20,
+                                            subtotal=20))
+    p = repositories.obtener_proyecto(pid)
+    t1 = apu_engine.recalcular_proyecto(p)
+    # subir utilidad -> total mayor
+    repositories.actualizar_incidencias(pid, factor_utilidad_sabs=0.30)
+    p2 = repositories.obtener_proyecto(pid)
+    t2 = apu_engine.recalcular_proyecto(p2)
+    assert t2 > t1

@@ -42,6 +42,9 @@ def render(proyecto):
                                  con_simbolo=False))
 
     st.divider()
+    _editor_incidencias(proyecto)
+
+    st.divider()
     st.markdown("""
 **Flujo recomendado**
 1. **Ítems**  carga la tabla de cantidades (CSV/XLSX) o ingresa manualmente.
@@ -52,3 +55,45 @@ def render(proyecto):
 5. **Cotizaciones / Proveedores**  revisa fuentes y gestiona proveedores.
 6. **Exportación**  Excel, PDF y JSON con trazabilidad completa.
     """)
+
+
+def _editor_incidencias(proyecto):
+    """Editor de incidencias indirectas; al guardar recalcula todo el presupuesto."""
+    from core import apu_engine, repositories
+
+    st.subheader("Incidencias indirectas del precio unitario")
+    st.caption("Ajusta los porcentajes y pulsa 'Aplicar y recalcular'. Todo el "
+               "presupuesto se actualiza automaticamente con los nuevos valores.")
+    with st.form("incidencias"):
+        c1, c2, c3 = st.columns(3)
+        bs = c1.number_input("Beneficios sociales (% sobre mano de obra)",
+                             0.0, 2.0, float(proyecto.factor_beneficios_sociales),
+                             0.01, format="%.4f")
+        iva_mo = c2.number_input("IVA mano de obra",
+                                 0.0, 1.0, float(proyecto.factor_iva_mano_obra),
+                                 0.0001, format="%.4f")
+        herr = c3.number_input("Herramientas (% sobre mano de obra)",
+                               0.0, 1.0, float(proyecto.factor_herramientas),
+                               0.01, format="%.4f")
+        c4, c5, c6 = st.columns(3)
+        gg = c4.number_input("Gastos generales (% sobre costo directo)",
+                             0.0, 1.0, float(proyecto.factor_gastos_generales),
+                             0.01, format="%.4f")
+        ut = c5.number_input("Utilidad", 0.0, 1.0,
+                             float(proyecto.factor_utilidad_sabs), 0.01,
+                             format="%.4f")
+        it = c6.number_input("Impuestos IT", 0.0, 1.0, float(proyecto.factor_it),
+                             0.0001, format="%.4f")
+        aplicar = st.form_submit_button("Aplicar y recalcular presupuesto",
+                                        type="primary")
+    if aplicar:
+        repositories.actualizar_incidencias(
+            proyecto.id, factor_beneficios_sociales=bs, factor_iva_mano_obra=iva_mo,
+            factor_herramientas=herr, factor_gastos_generales=gg,
+            factor_utilidad_sabs=ut, factor_it=it)
+        proyecto_actualizado = repositories.obtener_proyecto(proyecto.id)
+        with st.spinner("Recalculando todos los precios unitarios..."):
+            total = apu_engine.recalcular_proyecto(proyecto_actualizado)
+        st.success(f"Presupuesto recalculado. Nuevo costo total: "
+                   f"{currency.formatear(total, proyecto.moneda, proyecto)}")
+        st.rerun()

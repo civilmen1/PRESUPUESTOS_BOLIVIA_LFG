@@ -373,3 +373,22 @@ def generar_apu_proyecto(proyecto: Proyecto, items: Optional[List[Item]] = None,
     logger.info("APU generado para %d ítems del proyecto %s", len(items),
                 proyecto.nombre)
     return resultados
+
+
+def recalcular_proyecto(proyecto: Proyecto) -> float:
+    """Recalcula TODOS los resultados del proyecto con los factores actuales
+    (incidencias indirectas), sin recotizar. Devuelve el costo total del
+    presupuesto. Usar tras cambiar gastos generales, utilidad, IT, etc.
+    """
+    total = 0.0
+    for item in repositories.listar_items(proyecto.id):
+        if item.es_modulo:
+            continue
+        recursos = repositories.listar_recursos(item.id)
+        if not recursos:
+            continue
+        resultado = calcular_resultado(item, recursos, proyecto)
+        repositories.guardar_resultado(resultado)
+        total += resultado.precio_unitario_total * (item.cantidad or 0)
+    logger.info("Presupuesto recalculado: %s = %.2f", proyecto.nombre, total)
+    return round(total, 2)
