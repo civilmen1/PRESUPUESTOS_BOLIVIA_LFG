@@ -59,3 +59,6 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      # Google Analytics 4: pega tu ID de medicion (G-XXXXXXXXXX) en el panel.
+      - key: GA_MEASUREMENT_ID
+        sync: false

@@ -113,6 +113,10 @@ def main() -> None:
     st.markdown(_CSS, unsafe_allow_html=True)
     _inicializar()
 
+    # Google Analytics 4 (si GA_MEASUREMENT_ID esta configurado en el entorno).
+    from core import analytics
+    analytics.inyectar_ga()
+
     # Ruta PUBLICA de aportes al banco (enlace propio: ?aportar=1).
     # Cualquier persona puede subir Formularios B-2 sin cuenta ni login.
     if str(st.query_params.get("aportar", "")).lower() in ("1", "true", "si"):

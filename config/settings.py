@@ -150,6 +150,13 @@ APP_NAME = "APU Bolivia Generator"
 APP_VERSION = "0.1.0"
 
 # --------------------------------------------------------------------------- #
+# Google Analytics (GA4). Opcional: configura tu ID de medicion (G-XXXXXXXXXX)
+# en el panel de Render como variable de entorno GA_MEASUREMENT_ID.
+# Si esta vacio, no se carga nada.
+# --------------------------------------------------------------------------- #
+GA_MEASUREMENT_ID = os.getenv("GA_MEASUREMENT_ID", "").strip()
+
+# --------------------------------------------------------------------------- #
 # Autenticación / login de empresas y entidades
 # --------------------------------------------------------------------------- #
 # Sal global para el hash de contraseñas (cámbiala en producción).
