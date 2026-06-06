@@ -24,6 +24,42 @@ from models.quotation import Cotizacion
 logger = get_logger(__name__)
 
 
+def _recursos_desde_banco(item: Item) -> List[RecursoAPU]:
+    """Si el ítem coincide con un APU del banco de referencia, devuelve sus
+    recursos (rendimientos reales). Lista vacía si no hay coincidencia clara."""
+    try:
+        from core import banco_apu
+        if not banco_apu.hay_banco():
+            return []
+        apu = banco_apu.buscar_apu(item.descripcion, umbral=0.45)
+        if not apu:
+            return []
+        recursos: List[RecursoAPU] = []
+        mapa = {"materiales": TIPO_MATERIAL, "mano_obra": TIPO_MANO_OBRA,
+                "equipo": TIPO_EQUIPO}
+        for grupo, tipo in mapa.items():
+            for d in apu.get(grupo, []):
+                cant = float(d.get("cantidad", 0) or 0)
+                if cant <= 0:
+                    continue
+                r = RecursoAPU(
+                    item_id=item.id, tipo=tipo,
+                    descripcion=d.get("descripcion", ""),
+                    unidad=d.get("unidad", ""), rendimiento=cant,
+                    cantidad_apu=cant, precio_unitario=float(d.get("precio", 0) or 0),
+                    fuente_precio="banco_apu" if d.get("precio") else "sin_precio")
+                r.calcular_subtotal()
+                recursos.append(r)
+        if recursos:
+            logger.info("Ítem '%s' -> APU del banco '%s' (%d recursos)",
+                        item.descripcion[:40], apu.get("actividad", "")[:40],
+                        len(recursos))
+        return recursos
+    except Exception:
+        logger.exception("Fallo buscando en el banco de APU")
+        return []
+
+
 def _extraer_info_item(descripcion: str, spec: str, item_id: int,
                        unidad: str = ""):
     """Extrae info de la especificación: usa IA si está habilitada, si no offline."""
@@ -141,6 +177,18 @@ def armar_recursos_desde_analisis(item: Item, persistir: bool = True
     editables de la página de Vinculación. No respeta recursos bloqueados aquí:
     se usa para el armado inicial.
     """
+    # PRIORIDAD 1: banco de APU de referencia. Si el ítem coincide claramente
+    # con un APU real del banco, se usa ese armado (rendimientos reales).
+    recursos_banco = _recursos_desde_banco(item)
+    if recursos_banco:
+        if persistir and item.id:
+            repositories.borrar_recursos_item(item.id)
+            for r in recursos_banco:
+                cat = getattr(r, "_categoria", "")
+                r.id = repositories.guardar_recurso(r)
+                r._categoria = cat
+        return recursos_banco
+
     spec = ""
     if item.id:
         try:

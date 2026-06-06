@@ -72,7 +72,25 @@ def cotizar_recurso(
         detalle.append({"nivel": 0, "fuente": "manual", "precio": precio_manual})
 
     # --------------------------------------------------------------------- #
-    # NIVEL 1: Base de Datos Bolivia
+    # NIVEL 1: Banco de APU de referencia (precios reales de Bolivia)
+    # --------------------------------------------------------------------- #
+    if not fuentes:
+        try:
+            from core import banco_apu
+            pb = banco_apu.buscar_precio(descripcion)
+            if pb and pb.get("precio"):
+                precio_h, _ = homologar_precio(pb["precio"], pb["unidad"], unidad)
+                precio_final = precio_h if precio_h is not None else pb["precio"]
+                fuentes.append(FuentePrecio(
+                    precio=precio_final, nivel=NIVEL_BD, fecha=_fecha_hoy(),
+                    fuente="banco_apu"))
+                detalle.append({"nivel": 1, "fuente": "banco_apu",
+                                "precio": precio_final})
+        except Exception:
+            pass
+
+    # --------------------------------------------------------------------- #
+    # NIVEL 1: Base de Datos Bolivia (proveedores registrados)
     # --------------------------------------------------------------------- #
     if not fuentes:
         if tipo == TIPO_MATERIAL:
