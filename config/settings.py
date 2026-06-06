@@ -136,6 +136,13 @@ ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 # Modelo Gemini del nivel GRATUITO (Flash). Pro es de pago desde 2026.
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+# Limites de tiempo para que una llamada lenta NO estanque la vinculacion:
+#   timeout por intento (s) y numero maximo de reintentos ante 429.
+GEMINI_TIMEOUT = int(os.getenv("GEMINI_TIMEOUT", "30"))
+GEMINI_MAX_REINTENTOS = int(os.getenv("GEMINI_MAX_REINTENTOS", "2"))
+# Vinculacion por lotes: ítems procesados por tanda (cada tanda se guarda y la
+# UI se refresca, evitando un bucle gigante que se corte y reinicie todo).
+VINCULACION_LOTE = int(os.getenv("VINCULACION_LOTE", "8"))
 # LLM LOCAL GRATIS (Ollama): corre modelos en tu PC, sin tokens ni internet.
 # Instala Ollama (https://ollama.com) y un modelo: `ollama pull llama3.1`
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")

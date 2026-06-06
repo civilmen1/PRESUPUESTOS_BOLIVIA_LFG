@@ -37,9 +37,10 @@ RUN mkdir -p /data \
 # Inicializar el esquema de la base de datos al construir (idempotente en runtime)
 EXPOSE 8501
 
-# Healthcheck para plataformas que lo soporten
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')" || exit 1
+# Healthcheck tolerante: margen amplio para no reiniciar el contenedor mientras
+# la app esta ocupada (p. ej. una vinculacion con IA que tarda).
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=8)" || exit 1
 
 # Arranque: el entrypoint corrige permisos del volumen, baja a usuario no-root
 # (appuser) con gosu, inicializa la BD y lanza Streamlit.

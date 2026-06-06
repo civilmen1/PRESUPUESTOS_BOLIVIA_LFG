@@ -97,28 +97,15 @@ def render(proyecto):
 
     col1, col2 = st.columns([1, 1])
     top_k = col1.slider("Coincidencias por ítem", 1, 5, 3)
+    st.session_state["vinc_top_k"] = top_k
     if col2.button("Ejecutar vinculación inteligente", type="primary"):
-        from core import apu_engine
-        matcher = SemanticMatcher(secciones)
-        prog = st.progress(0.0, text="Vinculando y armando recursos con IA...")
-        n = len(items_reales) or 1
-        for i, it in enumerate(items_reales):
-            # 1) vincular modulo -> item
-            repositories.borrar_vinculos_item(it.id)
-            for v in matcher.buscar(it, top_k=top_k,
-                                    modulo_nombre=modulos.get(it.id, "")):
-                repositories.guardar_vinculo(v)
-            # 2) armar recursos con IA (segun contexto) y 3) validar el item
-            try:
-                apu_engine.armar_recursos_desde_analisis(it)
-                repositories.set_validacion_tecnica(it.id, True)
-            except Exception:
-                pass
-            prog.progress((i + 1) / n,
-                          text=f"Procesando {i + 1}/{n}: {it.descripcion[:40]}")
-        st.success("Vinculación completada. Todos los ítems quedaron armados y "
-                   "validados. Revisa y modifica los que desees.")
+        # Arranca el proceso resumible por lotes (no un bucle gigante).
+        st.session_state["vinc_activa"] = True
+        st.session_state["vinc_intentados"] = []
         st.rerun()
+
+    if st.session_state.get("vinc_activa"):
+        _ejecutar_vinculacion_por_lotes(items_reales, secciones, modulos)
 
     # Resumen de validación del proyecto
     total = len(items_reales)
@@ -140,6 +127,60 @@ def render(proyecto):
             modulo_actual = mod
             st.markdown(f"###  {mod}")
         _render_item(it)
+
+
+def _ejecutar_vinculacion_por_lotes(items_reales, secciones, modulos):
+    """Procesa la vinculación en tandas pequeñas y RESUMIBLES.
+
+    Cada tanda procesa pocos ítems, los guarda y refresca la UI. Si la sesión se
+    corta o el servidor se reinicia, los ítems ya armados quedan guardados y al
+    volver a ejecutar continúa con los pendientes (no reinicia todo).
+    """
+    from core import apu_engine
+
+    top_k = st.session_state.get("vinc_top_k", 3)
+    intentados = set(st.session_state.get("vinc_intentados", []))
+    # Pendientes: ítems sin validar que no se hayan intentado en esta corrida.
+    pendientes = [it for it in items_reales
+                  if not it.validado_tecnico and it.id not in intentados]
+    total = len(items_reales) or 1
+    hechos = sum(1 for it in items_reales if it.validado_tecnico)
+
+    if not pendientes:
+        st.session_state["vinc_activa"] = False
+        st.success("Vinculación completada. Los ítems quedaron armados y "
+                   "validados. Revisa y modifica los que desees.")
+        st.rerun()
+        return
+
+    c1, c2 = st.columns([4, 1])
+    c1.progress(hechos / total,
+                text=f"Vinculando con IA: {hechos}/{total} ítems. No cierres "
+                     "esta página; si se corta, continúa al volver a ejecutar.")
+    if c2.button("Detener"):
+        st.session_state["vinc_activa"] = False
+        st.info("Vinculación detenida. Puedes reanudarla cuando quieras; "
+                "continuará con los ítems pendientes.")
+        st.rerun()
+        return
+
+    matcher = SemanticMatcher(secciones)
+    lote = pendientes[:max(1, settings.VINCULACION_LOTE)]
+    for it in lote:
+        try:
+            repositories.borrar_vinculos_item(it.id)
+            for v in matcher.buscar(it, top_k=top_k,
+                                    modulo_nombre=modulos.get(it.id, "")):
+                repositories.guardar_vinculo(v)
+            apu_engine.armar_recursos_desde_analisis(it)
+            repositories.set_validacion_tecnica(it.id, True)
+        except Exception:
+            # No frenar toda la corrida por un ítem; se marca intentado para no
+            # reprocesarlo en bucle y se sigue con el resto.
+            pass
+        intentados.add(it.id)
+    st.session_state["vinc_intentados"] = list(intentados)
+    st.rerun()
 
 
 def _render_item(it):

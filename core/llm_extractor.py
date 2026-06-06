@@ -300,15 +300,19 @@ def _gemini_json(prompt: str, modelo: str) -> Optional[str]:
         "generationConfig": {"temperature": 0.1,
                              "responseMimeType": "application/json"},
     }
-    # Reintenta ante limite de tasa (429) del nivel gratuito.
-    for intento in range(3):
+    # Reintenta ante limite de tasa (429) del nivel gratuito, con tiempo acotado.
+    intentos = max(1, settings.GEMINI_MAX_REINTENTOS + 1)
+    for intento in range(intentos):
         try:
             resp = requests.post(url, params={"key": settings.GEMINI_API_KEY},
-                                 json=cuerpo, timeout=60)
+                                 json=cuerpo, timeout=settings.GEMINI_TIMEOUT)
             if resp.status_code == 200:
                 data = resp.json()
                 return data["candidates"][0]["content"]["parts"][0]["text"]
             if resp.status_code == 429:
+                if intento == intentos - 1:
+                    logger.warning("Gemini 429 persistente; se omite este item.")
+                    return None
                 espera = 5 * (intento + 1)
                 logger.warning("Gemini 429 (limite de tasa); reintentando en %ss",
                                espera)
