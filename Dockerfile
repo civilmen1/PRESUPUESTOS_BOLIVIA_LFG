@@ -3,12 +3,16 @@
 # =============================================================================
 FROM python:3.11-slim
 
-# Dependencias del sistema para OCR (Tesseract) y lectura de PDF (Poppler).
+# Dependencias del sistema para OCR (Tesseract), lectura de PDF (Poppler) y
+# gosu (para bajar privilegios de root a appuser en el arranque).
 # Si no necesitas OCR en la nube, puedes quitar tesseract/poppler para una
 # imagen más liviana.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        tesseract-ocr tesseract-ocr-spa poppler-utils \
+        tesseract-ocr tesseract-ocr-spa poppler-utils gosu \
     && rm -rf /var/lib/apt/lists/*
+
+# Usuario sin privilegios para ejecutar la aplicación (no-root).
+RUN useradd --create-home --uid 1000 appuser
 
 WORKDIR /app
 
@@ -26,7 +30,9 @@ COPY . .
 
 # Carpeta de datos persistente (se monta como volumen en producción)
 ENV APU_DB_PATH=/data/proveedores.db
-RUN mkdir -p /data
+RUN mkdir -p /data \
+    && chmod +x /app/docker-entrypoint.sh \
+    && chown -R appuser:appuser /app /data
 
 # Inicializar el esquema de la base de datos al construir (idempotente en runtime)
 EXPOSE 8501
@@ -35,5 +41,6 @@ EXPOSE 8501
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')" || exit 1
 
-# Arranque: inicializa la BD y lanza Streamlit
-CMD ["sh", "-c", "python -m scripts.init_db && streamlit run app.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true"]
+# Arranque: el entrypoint corrige permisos del volumen, baja a usuario no-root
+# (appuser) con gosu, inicializa la BD y lanza Streamlit.
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

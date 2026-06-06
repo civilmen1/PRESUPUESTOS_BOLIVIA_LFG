@@ -79,7 +79,50 @@ def render(proyecto=None):
                        file_name="banco_apu.md", mime="text/markdown")
 
     st.divider()
+    _panel_moderacion()
+
+    st.divider()
     _panel_trafico()
+
+
+def _panel_moderacion():
+    """Aprobacion de los aportes publicos antes de que entren al banco."""
+    from core import moderacion
+
+    pendientes = moderacion.listar("pendiente")
+    st.subheader(f"Aportes publicos por revisar ({len(pendientes)})")
+    st.caption("Los aportes recibidos por el enlace publico NO entran al banco "
+               "hasta que los apruebes aqui. Asi proteges la calidad de tus "
+               "precios.")
+    if not pendientes:
+        st.info("No hay aportes pendientes de revision.")
+        return
+
+    for a in pendientes:
+        apus = a.get("apus", [])
+        with st.expander(f"#{a['id']}  ·  {a.get('archivo','')}  ·  "
+                         f"{len(apus)} APUs  ·  {a.get('nombre','')} "
+                         f"({a.get('correo','')})"):
+            df = pd.DataFrame([{
+                "Actividad": x.get("actividad", ""),
+                "Unidad": x.get("unidad", ""),
+                "Materiales": len(x.get("materiales", [])),
+                "Mano de obra": len(x.get("mano_obra", [])),
+                "Equipo": len(x.get("equipo", []))} for x in apus])
+            st.dataframe(df, use_container_width=True, hide_index=True,
+                         height=220)
+            c1, c2 = st.columns(2)
+            if c1.button("Aprobar e incorporar al banco", key=f"ap_{a['id']}",
+                         type="primary", use_container_width=True):
+                n = moderacion.aprobar(a["id"])
+                banco_apu._cargar.cache_clear()
+                st.success(f"Aprobado: {n} APUs incorporados al banco.")
+                st.rerun()
+            if c2.button("Rechazar", key=f"rc_{a['id']}",
+                         use_container_width=True):
+                moderacion.rechazar(a["id"])
+                st.warning("Aporte rechazado (no entro al banco).")
+                st.rerun()
 
 
 def _panel_trafico():

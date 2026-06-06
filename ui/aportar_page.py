@@ -55,9 +55,9 @@ def render(*_args, **_kwargs) -> None:
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         st.metric("Analisis de Precios Unitarios en el banco", f"{total:,}")
-        st.caption("Sube uno o varios Formularios B-2 en Excel (.xlsx). La carga "
-                   "se SUMA al banco, no borra lo existente. No se necesita cuenta "
-                   "ni contrasena: basta tu nombre y correo.")
+        st.caption("Sube uno o varios Formularios B-2 en Excel (.xlsx). Tu aporte "
+                   "pasa por una revision antes de incorporarse al banco. No se "
+                   "necesita cuenta ni contrasena: basta tu nombre y correo.")
 
         with st.form("aporte_publico"):
             nombre = st.text_input("Tu nombre o el de tu empresa *")
@@ -85,8 +85,8 @@ def render(*_args, **_kwargs) -> None:
                 st.error("Debes autorizar el uso de los precios para continuar.")
                 return
 
-            from scripts.importar_apu_banco import importar, guardar_banco
-            from core import importador_bc3
+            from scripts.importar_apu_banco import importar
+            from core import importador_bc3, moderacion
             from core.text_cleaner import nombre_archivo_seguro
             total_nuevos = 0
             for archivo in archivos:
@@ -98,9 +98,14 @@ def render(*_args, **_kwargs) -> None:
                         apus = importador_bc3.extraer_apus(archivo.getbuffer())
                     else:
                         apus = importar(str(ruta))
-                    # Aportes publicos: SIEMPRE se agregan, nunca reemplazan.
-                    guardar_banco(apus, proyecto=f"aporte:{nombre.strip()}",
-                                  reemplazar=False)
+                    if not apus:
+                        st.warning(f"{seguro}: no se reconocieron APUs en el "
+                                   f"archivo (revisa el formato B-2).")
+                        continue
+                    # Aportes publicos: quedan PENDIENTES de revision, no entran
+                    # directo al banco que usa la IA.
+                    moderacion.agregar_pendiente(nombre.strip(), correo.strip(),
+                                                 seguro, apus)
                     _registrar_aporte(nombre.strip(), correo.strip(),
                                       seguro, len(apus))
                     total_nuevos += len(apus)
@@ -108,15 +113,11 @@ def render(*_args, **_kwargs) -> None:
                 except Exception as exc:
                     st.error(f"{seguro}: no se pudo leer - {exc}")
 
-            banco_apu._cargar.cache_clear()
-            try:
-                banco_apu.guardar_markdown()
-            except Exception:
-                pass
             if total_nuevos:
-                st.success(f"Gracias, {nombre.strip()}. Aportaste "
-                           f"{total_nuevos} APUs. El banco ahora tiene "
-                           f"{len(banco_apu.listar_apus()):,} APUs.")
+                st.success(f"Gracias, {nombre.strip()}. Recibimos "
+                           f"{total_nuevos} APUs. Quedaran en revision y se "
+                           f"incorporaran al banco una vez aprobados. Tu aporte "
+                           f"es muy valioso.")
                 st.balloons()
 
         st.divider()
