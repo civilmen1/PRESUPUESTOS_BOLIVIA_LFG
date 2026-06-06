@@ -10,13 +10,19 @@ entorno GA_MEASUREMENT_ID, ej. "G-XXXXXXXXXX").
 """
 from __future__ import annotations
 
+import re
+
 from config import settings
+
+# El ID de medicion de GA4 tiene forma G-XXXXXXXXXX (letras/numeros). Se valida
+# para no inyectar nunca texto arbitrario en el <script> (defensa anti-XSS).
+_ID_VALIDO = re.compile(r"^G-[A-Z0-9]{4,20}$")
 
 
 def inyectar_ga() -> None:
     """Carga GA4 en la pagina si hay ID configurado (una vez por sesion)."""
     mid = settings.GA_MEASUREMENT_ID
-    if not mid:
+    if not mid or not _ID_VALIDO.match(mid):
         return
     import streamlit as st
 

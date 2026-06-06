@@ -34,23 +34,25 @@ def render(proyecto=None):
     if archivos and st.button("Cargar al banco", type="primary"):
         from scripts.importar_apu_banco import importar, guardar_banco
         from core import importador_bc3
+        from core.text_cleaner import nombre_archivo_seguro
         total_nuevos = 0
         primero = True
         for archivo in archivos:
-            ruta = settings.UPLOAD_DIR / archivo.name
+            seguro = nombre_archivo_seguro(archivo.name)
+            ruta = settings.UPLOAD_DIR / seguro
             ruta.write_bytes(archivo.getbuffer())
             try:
-                if archivo.name.lower().endswith(".bc3"):
+                if seguro.lower().endswith(".bc3"):
                     apus = importador_bc3.extraer_apus(archivo.getbuffer())
                 else:
                     apus = importar(str(ruta))
-                guardar_banco(apus, proyecto=archivo.name,
+                guardar_banco(apus, proyecto=seguro,
                               reemplazar=reemplazar and primero)
                 primero = False
                 total_nuevos += len(apus)
-                st.success(f"{archivo.name}: {len(apus)} APUs procesados.")
+                st.success(f"{seguro}: {len(apus)} APUs procesados.")
             except Exception as exc:
-                st.error(f"{archivo.name}: error al leer - {exc}")
+                st.error(f"{seguro}: error al leer - {exc}")
         # refrescar cache del banco
         banco_apu._cargar.cache_clear()
         banco_apu.guardar_markdown()

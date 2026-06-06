@@ -87,12 +87,14 @@ def render(*_args, **_kwargs) -> None:
 
             from scripts.importar_apu_banco import importar, guardar_banco
             from core import importador_bc3
+            from core.text_cleaner import nombre_archivo_seguro
             total_nuevos = 0
             for archivo in archivos:
-                ruta = settings.UPLOAD_DIR / archivo.name
+                seguro = nombre_archivo_seguro(archivo.name)
+                ruta = settings.UPLOAD_DIR / seguro
                 ruta.write_bytes(archivo.getbuffer())
                 try:
-                    if archivo.name.lower().endswith(".bc3"):
+                    if seguro.lower().endswith(".bc3"):
                         apus = importador_bc3.extraer_apus(archivo.getbuffer())
                     else:
                         apus = importar(str(ruta))
@@ -100,11 +102,11 @@ def render(*_args, **_kwargs) -> None:
                     guardar_banco(apus, proyecto=f"aporte:{nombre.strip()}",
                                   reemplazar=False)
                     _registrar_aporte(nombre.strip(), correo.strip(),
-                                      archivo.name, len(apus))
+                                      seguro, len(apus))
                     total_nuevos += len(apus)
-                    st.success(f"{archivo.name}: {len(apus)} APUs recibidos.")
+                    st.success(f"{seguro}: {len(apus)} APUs recibidos.")
                 except Exception as exc:
-                    st.error(f"{archivo.name}: no se pudo leer - {exc}")
+                    st.error(f"{seguro}: no se pudo leer - {exc}")
 
             banco_apu._cargar.cache_clear()
             try:

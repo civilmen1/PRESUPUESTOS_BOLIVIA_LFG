@@ -1,12 +1,28 @@
 """Limpieza y normalización de texto."""
 from __future__ import annotations
 
+import os
 import re
 import unicodedata
 
 _MULTISPACE = re.compile(r"[ \t]+")
 _MULTINEWLINE = re.compile(r"\n{3,}")
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+_NOMBRE_SEGURO = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def nombre_archivo_seguro(nombre: str, por_defecto: str = "archivo") -> str:
+    """Devuelve un nombre de archivo seguro (sin rutas ni caracteres raros).
+
+    Evita 'path traversal': descarta cualquier componente de directorio
+    (../, /etc/passwd, C:\\...) y deja solo el nombre base saneado.
+    """
+    base = os.path.basename((nombre or "").replace("\\", "/").strip())
+    base = _NOMBRE_SEGURO.sub("_", base).strip("._")
+    # Evita nombres ocultos o vacios tras el saneo.
+    if not base or base in (".", ".."):
+        return por_defecto
+    return base[:120]
 
 
 def limpiar_texto(texto: str) -> str:
