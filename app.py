@@ -142,6 +142,20 @@ def main() -> None:
     seleccion = st.sidebar.radio("Navegación", list(PAGINAS_CONTRATISTA.keys()))
 
     st.sidebar.divider()
+    # Estado de la IA, visible siempre tras iniciar sesion.
+    try:
+        from core.llm_extractor import proveedores_disponibles
+        disp = proveedores_disponibles() if settings.USAR_LLM else {}
+        activos = [k for k, v in disp.items() if v]
+        if settings.USAR_LLM and activos:
+            st.sidebar.success("IA activa: " + ", ".join(activos))
+        else:
+            st.sidebar.error(
+                "IA NO activa (USAR_LLM=" + str(settings.USAR_LLM) +
+                ", proveedores=" + (", ".join(activos) if activos else "ninguno")
+                + ")")
+    except Exception:
+        pass
     modo_email = " real" if not settings.EMAIL_DRY_RUN else " simulado"
     modo_web = " real" if not settings.SCRAPER_DRY_RUN else " simulado"
     st.sidebar.caption(f"Email: {modo_email}  ·  Web: {modo_web}")
