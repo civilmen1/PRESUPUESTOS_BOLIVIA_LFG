@@ -4,7 +4,11 @@ __pycache__/
 .venv/
 venv/
 env/
+# Variables de entorno y secretos: ignorar todas las variantes .env*
+# (excepto la plantilla .env.example, que SI se versiona).
 .env
+.env.*
+!.env.example
 *.db
 *.sqlite3
 data/*.db
