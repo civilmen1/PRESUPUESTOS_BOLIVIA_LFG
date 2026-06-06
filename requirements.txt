@@ -23,9 +23,8 @@ requests>=2.31
 beautifulsoup4>=4.12
 
 # --- Extracción con IA / LLM ---
-# Gemini (nivel gratuito) para generar recursos con IA. Se activa con GEMINI_API_KEY.
-google-genai>=1.0
-# Opcionales (de pago), se activan solo si configuras su API key:
+# Gemini se usa por su API REST con 'requests' (no requiere SDK adicional).
+# Se activa con GEMINI_API_KEY. Opcionales (de pago) si configuras su key:
 # openai>=1.0           # GPT-4o (extracción estructurada de partidas)
 # anthropic>=0.40       # Claude Sonnet (interpretación normativa NB)
 

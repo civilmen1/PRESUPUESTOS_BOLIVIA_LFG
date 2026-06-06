@@ -166,35 +166,21 @@ def interpretar_normativa(item_descripcion: str, spec: str) -> Optional[dict]:
 # 3) Análisis de planos / PDF (rol: Gemini, multimodal)
 # --------------------------------------------------------------------------- #
 def analizar_planos(ruta_pdf: str, prompt: str = "") -> Optional[str]:
-    """Análisis multimodal de un plano/PDF con Gemini (rol 3). None si no hay key."""
+    """Análisis de un plano/PDF con Gemini (rol 3). None si no hay key.
+
+    Usa la API REST (sin SDK): sube el texto del documento como contexto.
+    """
     if not settings.GEMINI_API_KEY:
         return None
-    instr = prompt or ("Analiza este plano/documento de construcción y lista "
-                       "las partidas, materiales y cantidades que identifiques.")
-    # SDK nuevo
     try:
-        from google import genai as genai_new
-        client = genai_new.Client(api_key=settings.GEMINI_API_KEY)
-        archivo = client.files.upload(file=ruta_pdf)
-        resp = client.models.generate_content(
-            model=settings.GEMINI_MODEL, contents=[archivo, instr])
-        return resp.text
-    except ImportError:
-        pass
+        from core.parser_documento import extraer_texto
+        texto = extraer_texto(ruta_pdf)[:12000]
     except Exception:
-        logger.exception("Error analizando planos con Gemini (SDK nuevo)")
-        return None
-    # SDK antiguo
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        model = genai.GenerativeModel(settings.GEMINI_MODEL)
-        archivo = genai.upload_file(ruta_pdf)
-        resp = model.generate_content([archivo, instr])
-        return resp.text
-    except Exception:
-        logger.exception("Error analizando planos con Gemini (SDK antiguo)")
-        return None
+        texto = ""
+    instr = (prompt or "Analiza este documento de construcción y lista las "
+             "partidas, materiales y cantidades que identifiques.") + \
+        "\n\nDOCUMENTO:\n" + texto
+    return _gemini_json(instr, settings.GEMINI_MODEL)
 
 
 # --------------------------------------------------------------------------- #
@@ -256,39 +242,35 @@ def _ollama_json(prompt: str, modelo: str) -> Optional[str]:
 
 
 def _gemini_json(prompt: str, modelo: str) -> Optional[str]:
-    """Llama a Gemini pidiendo respuesta en JSON. Soporta SDK nuevo y antiguo."""
-    # SDK nuevo: google-genai
+    """Llama a Gemini por su API REST (sin SDK) pidiendo respuesta en JSON.
+
+    Usa requests (ya disponible), por lo que no requiere instalar paquetes
+    pesados ni arriesgar el arranque de la app.
+    """
     try:
-        from google import genai as genai_new
-        try:
-            client = genai_new.Client(api_key=settings.GEMINI_API_KEY)
-            resp = client.models.generate_content(
-                model=modelo, contents=prompt,
-                config={"response_mime_type": "application/json",
-                        "temperature": 0.1})
-            return resp.text
-        except Exception:
-            logger.exception("Error llamando a Gemini (SDK nuevo)")
-            return None
+        import requests
     except ImportError:
-        pass
-    # SDK antiguo: google-generativeai
-    try:
-        import google.generativeai as genai
-    except ImportError:
-        logger.warning("SDK de Gemini no instalado (google-genai o "
-                       "google-generativeai); omitiendo Gemini")
         return None
+    url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
+           f"{modelo}:generateContent")
     try:
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        model = genai.GenerativeModel(modelo)
-        resp = model.generate_content(
-            prompt,
-            generation_config={"response_mime_type": "application/json",
-                               "temperature": 0.1})
-        return resp.text
-    except Exception:
-        logger.exception("Error llamando a Gemini (SDK antiguo)")
+        resp = requests.post(
+            url,
+            params={"key": settings.GEMINI_API_KEY},
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.1,
+                                     "responseMimeType": "application/json"},
+            },
+            timeout=60)
+        if resp.status_code != 200:
+            logger.error("Gemini API HTTP %s: %s", resp.status_code,
+                         resp.text[:300])
+            return None
+        data = resp.json()
+        return data["candidates"][0]["content"]["parts"][0]["text"]
+    except Exception as exc:
+        logger.error("Error llamando a Gemini REST: %s", exc)
         return None
 
 
