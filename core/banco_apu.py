@@ -82,6 +82,32 @@ def precios_elementales() -> dict:
     return out
 
 
+def a_markdown(max_apus: int = 0) -> str:
+    """Devuelve el banco en Markdown compacto (para usar como contexto de IA
+    con bajo consumo de tokens). max_apus=0 incluye todos."""
+    apus = listar_apus()
+    if max_apus:
+        apus = apus[:max_apus]
+    lineas = ["# Banco de APU de referencia (Bolivia)"]
+    for a in apus:
+        lineas.append(f"\n## {_limpiar_desc(a.get('actividad',''))} "
+                      f"[{a.get('unidad','')}]")
+        for grupo, etq in (("materiales", "MAT"), ("mano_obra", "MO"),
+                           ("equipo", "EQ")):
+            for r in a.get(grupo, []):
+                lineas.append(f"- {etq}: {r.get('descripcion','')} | "
+                              f"{r.get('unidad','')} | {r.get('cantidad',0)} | "
+                              f"Bs {r.get('precio',0)}")
+    return "\n".join(lineas)
+
+
+def guardar_markdown() -> str:
+    """Guarda el banco en Markdown (data/banco_apu.md) y devuelve la ruta."""
+    ruta = settings.DATA_DIR / "banco_apu.md"
+    ruta.write_text(a_markdown(), encoding="utf-8")
+    return str(ruta)
+
+
 def buscar_precio(descripcion: str) -> dict | None:
     """Busca el precio de un insumo en el banco por coincidencia de palabras."""
     elem = precios_elementales()

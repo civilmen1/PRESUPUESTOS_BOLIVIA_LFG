@@ -1,0 +1,70 @@
+"""Pagina para cargar Formularios B-2 al BANCO DE APU (base de conocimiento).
+
+El ingeniero sube uno o varios archivos B-2 (Excel) y se agregan al banco para
+mejorar la generacion de precios unitarios. La importacion NO consume tokens
+(lee el Excel directamente). El banco se usa como plantilla prioritaria y como
+fuente de precios reales.
+"""
+from __future__ import annotations
+
+import pandas as pd
+import streamlit as st
+
+from config import settings
+from core import banco_apu
+
+
+def render(proyecto=None):
+    st.title("Banco de APU (base de conocimiento)")
+    st.caption("Sube tus Formularios B-2 (mismo formato del archivo de ejemplo) "
+               "para mejorar el conocimiento del sistema. La importacion lee el "
+               "Excel directamente, NO consume tokens de IA.")
+
+    n = len(banco_apu.listar_apus())
+    st.metric("APUs en el banco", n)
+
+    archivos = st.file_uploader(
+        "Archivos B-2 (Excel .xlsx)", type=["xlsx"], accept_multiple_files=True)
+    reemplazar = st.checkbox("Reemplazar el banco (en vez de agregar)",
+                             value=False)
+
+    if archivos and st.button("Cargar al banco", type="primary"):
+        from scripts.importar_apu_banco import importar, guardar_banco
+        total_nuevos = 0
+        primero = True
+        for archivo in archivos:
+            ruta = settings.UPLOAD_DIR / archivo.name
+            ruta.write_bytes(archivo.getbuffer())
+            try:
+                apus = importar(str(ruta))
+                guardar_banco(apus, proyecto=archivo.name,
+                              reemplazar=reemplazar and primero)
+                primero = False
+                total_nuevos += len(apus)
+                st.success(f"{archivo.name}: {len(apus)} APUs procesados.")
+            except Exception as exc:
+                st.error(f"{archivo.name}: error al leer - {exc}")
+        # refrescar cache del banco
+        banco_apu._cargar.cache_clear()
+        banco_apu.guardar_markdown()
+        st.success(f"Banco actualizado. Total de APUs ahora: "
+                   f"{len(banco_apu.listar_apus())}.")
+        st.rerun()
+
+    st.divider()
+    st.subheader("Contenido actual del banco")
+    apus = banco_apu.listar_apus()
+    if not apus:
+        st.info("El banco esta vacio. Sube tus Formularios B-2 para empezar.")
+        return
+    df = pd.DataFrame([{
+        "Actividad": a.get("actividad", ""), "Unidad": a.get("unidad", ""),
+        "Materiales": len(a.get("materiales", [])),
+        "Mano de obra": len(a.get("mano_obra", [])),
+        "Equipo": len(a.get("equipo", []))} for a in apus])
+    st.dataframe(df, use_container_width=True, hide_index=True, height=400)
+
+    # Descargar el banco en Markdown (version compacta para IA / respaldo)
+    md = banco_apu.a_markdown()
+    st.download_button("Descargar banco en Markdown (compacto)", md,
+                       file_name="banco_apu.md", mime="text/markdown")

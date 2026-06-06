@@ -105,11 +105,27 @@ def importar(ruta: str) -> list[dict]:
     return apus
 
 
-def guardar_banco(apus: list[dict], proyecto: str = "") -> Path:
+def guardar_banco(apus: list[dict], proyecto: str = "",
+                  reemplazar: bool = True) -> Path:
+    """Guarda los APUs en el banco. Si reemplazar=False, los AGREGA a lo existente
+    (evitando duplicados por nombre de actividad)."""
     ruta = settings.DATA_DIR / "banco_apu.json"
+    existentes: list[dict] = []
+    if not reemplazar and ruta.exists():
+        try:
+            existentes = json.loads(ruta.read_text(encoding="utf-8")).get(
+                "apus", [])
+        except Exception:
+            existentes = []
+    vistos = {normalizar(a.get("actividad", "")) for a in existentes}
+    for a in apus:
+        clave = normalizar(a.get("actividad", ""))
+        if clave and clave not in vistos:
+            existentes.append(a)
+            vistos.add(clave)
     banco = {"_descripcion": "Banco de APU de referencia (rendimientos y precios "
              "reales). Usado por el motor y la IA.", "proyecto": proyecto,
-             "apus": apus}
+             "apus": existentes}
     ruta.write_text(json.dumps(banco, ensure_ascii=False, indent=2),
                     encoding="utf-8")
     return ruta
