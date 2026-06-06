@@ -14,9 +14,9 @@ import streamlit as st
 from config import settings
 from config.logging_config import setup_logging
 from core.database import init_db
-from ui import (apu_page, auth_page, banco_page, dashboard, documents_page,
-                export_page, items_page, linking_page, provider_portal,
-                quotations_page, suppliers_page)
+from ui import (apu_page, aportar_page, auth_page, banco_page, dashboard,
+                documents_page, export_page, items_page, linking_page,
+                provider_portal, quotations_page, suppliers_page)
 from ui.components import selector_proyecto
 
 
@@ -70,6 +70,17 @@ def _pantalla_perfil() -> None:
         if st.button("Ingresar como Proveedor", use_container_width=True):
             st.session_state["perfil"] = "proveedor"
             st.rerun()
+    st.write("")
+    st.divider()
+    cc1, cc2, cc3 = st.columns([1, 2, 1])
+    with cc2:
+        st.markdown("<p style='text-align:center'>¿Solo quieres aportar tus "
+                    "precios unitarios? Sube tus Formularios B-2 sin necesidad "
+                    "de cuenta.</p>", unsafe_allow_html=True)
+        if st.button("Aportar al banco de precios (sin cuenta)",
+                     use_container_width=True):
+            st.query_params["aportar"] = "1"
+            st.rerun()
 
 
 _CSS = """
@@ -101,6 +112,12 @@ def main() -> None:
                        layout="wide")
     st.markdown(_CSS, unsafe_allow_html=True)
     _inicializar()
+
+    # Ruta PUBLICA de aportes al banco (enlace propio: ?aportar=1).
+    # Cualquier persona puede subir Formularios B-2 sin cuenta ni login.
+    if str(st.query_params.get("aportar", "")).lower() in ("1", "true", "si"):
+        aportar_page.render()
+        return
 
     perfil = st.session_state.get("perfil")
     if not perfil:
