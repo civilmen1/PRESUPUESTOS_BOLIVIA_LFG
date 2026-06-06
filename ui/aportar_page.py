@@ -38,6 +38,12 @@ def _registrar_aporte(nombre: str, correo: str, archivo: str, n_apus: int) -> No
 
 
 def render(*_args, **_kwargs) -> None:
+    # Contar la visita una sola vez por sesion (evita recontar en cada rerun).
+    if not st.session_state.get("_visita_aportar"):
+        from core import trafico
+        trafico.registrar_visita("aportar")
+        st.session_state["_visita_aportar"] = True
+
     st.markdown("<h1 style='text-align:center;color:#1F3B57'>PRESUPUESTO "
                 "BOLIVIA con IA</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align:center;font-size:1.1rem'>Aporta tus "

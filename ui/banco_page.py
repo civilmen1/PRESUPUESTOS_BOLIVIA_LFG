@@ -75,3 +75,36 @@ def render(proyecto=None):
     md = banco_apu.a_markdown()
     st.download_button("Descargar banco en Markdown (compacto)", md,
                        file_name="banco_apu.md", mime="text/markdown")
+
+    st.divider()
+    _panel_trafico()
+
+
+def _panel_trafico():
+    """Trafico de la pagina publica de aportes (?aportar=1) y lista de aportes."""
+    from core import trafico
+
+    st.subheader("Trafico de la pagina publica de aportes")
+    st.caption("Enlace para compartir:  tu-app.onrender.com/?aportar=1")
+    r = trafico.resumen("aportar", dias=30)
+    aportes = trafico.listar_aportes()
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Visitas totales", f"{r['total']:,}")
+    c2.metric("Visitas hoy", r["hoy"])
+    c3.metric("Aportes recibidos", len(aportes))
+
+    serie = r["ultimos_dias"]
+    if any(n for _, n in serie):
+        df = pd.DataFrame(serie, columns=["fecha", "visitas"]).set_index("fecha")
+        st.caption("Visitas por dia (ultimos 30 dias)")
+        st.bar_chart(df, height=200)
+    else:
+        st.info("Aun no hay visitas registradas en la pagina de aportes.")
+
+    if aportes:
+        st.caption("Quienes han aportado")
+        dfa = pd.DataFrame([{
+            "Fecha": a.get("fecha", ""), "Nombre": a.get("nombre", ""),
+            "Correo": a.get("correo", ""), "Archivo": a.get("archivo", ""),
+            "APUs": a.get("apus", 0)} for a in reversed(aportes)])
+        st.dataframe(dfa, use_container_width=True, hide_index=True, height=260)
