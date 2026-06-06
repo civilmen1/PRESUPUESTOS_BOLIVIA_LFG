@@ -251,27 +251,35 @@ def _gemini_json(prompt: str, modelo: str) -> Optional[str]:
         import requests
     except ImportError:
         return None
+    import time
     url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
            f"{modelo}:generateContent")
-    try:
-        resp = requests.post(
-            url,
-            params={"key": settings.GEMINI_API_KEY},
-            json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.1,
-                                     "responseMimeType": "application/json"},
-            },
-            timeout=60)
-        if resp.status_code != 200:
+    cuerpo = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.1,
+                             "responseMimeType": "application/json"},
+    }
+    # Reintenta ante limite de tasa (429) del nivel gratuito.
+    for intento in range(3):
+        try:
+            resp = requests.post(url, params={"key": settings.GEMINI_API_KEY},
+                                 json=cuerpo, timeout=60)
+            if resp.status_code == 200:
+                data = resp.json()
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+            if resp.status_code == 429:
+                espera = 5 * (intento + 1)
+                logger.warning("Gemini 429 (limite de tasa); reintentando en %ss",
+                               espera)
+                time.sleep(espera)
+                continue
             logger.error("Gemini API HTTP %s: %s", resp.status_code,
                          resp.text[:300])
             return None
-        data = resp.json()
-        return data["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception as exc:
-        logger.error("Error llamando a Gemini REST: %s", exc)
-        return None
+        except Exception as exc:
+            logger.error("Error llamando a Gemini REST: %s", exc)
+            return None
+    return None
 
 
 def _openai_json(prompt: str, modelo: str) -> Optional[str]:

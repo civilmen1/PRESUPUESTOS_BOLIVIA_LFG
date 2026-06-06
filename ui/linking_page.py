@@ -45,6 +45,24 @@ def render(proyecto):
     except Exception as exc:
         st.warning(f"No se pudo determinar el estado de la IA: {exc}")
 
+    # Prueba directa de la IA: confirma que el modelo responde de verdad.
+    with st.expander("Probar la IA (diagnostico)"):
+        if st.button("Ejecutar prueba de IA"):
+            from core.llm_extractor import _gemini_json
+            from config import settings as _s
+            prompt = ('Devuelve SOLO este JSON: {"recursos":[{"tipo":"material",'
+                      '"descripcion":"Cemento","unidad":"kg","cantidad":1}]}')
+            with st.spinner("Llamando a Gemini..."):
+                r = _gemini_json(prompt, _s.GEMINI_MODEL)
+            if r:
+                st.success("La IA respondio correctamente. Modelo: " +
+                           _s.GEMINI_MODEL)
+                st.code(r[:500])
+            else:
+                st.error("La IA NO respondio (revisa GEMINI_API_KEY, el modelo '" +
+                         _s.GEMINI_MODEL + "', o los Logs de Render). Mientras "
+                         "tanto se usan plantillas genericas.")
+
     items = repositories.listar_items(proyecto.id)
     secciones = repositories.listar_secciones(proyecto.id)
     modulos = repositories.nombres_modulos_de_items(proyecto.id)
@@ -119,40 +137,49 @@ def _render_item(it):
     expandido = st.session_state.get(abierto_key, not it.validado_tecnico)
     with st.expander(f"{estado} {it.numero or ''} {it.descripcion[:60]}",
                      expanded=expandido):
-        spec = repositories.texto_tecnico_item(it.id)
-        info = _extraer(it.descripcion, spec, it.id)
-
-        if info.medicion:
-            st.caption(" Medición/pago: " + info.medicion[:200])
-        if info.normas:
-            st.caption(" Normas: " + ", ".join(info.normas))
-
-        # Si el ítem no tiene recursos aún, armarlos desde el análisis
+        # Si el ítem no tiene recursos aún, armarlos desde el análisis (IA).
         recursos = repositories.listar_recursos(it.id)
         if not recursos:
-            if st.button(" Armar recursos desde la especificación",
-                         key=f"armar_{it.id}", type="primary"):
+            st.caption("Aún no se armaron los recursos de este ítem.")
+            if st.button("Armar recursos con IA", key=f"armar_{it.id}",
+                         type="primary"):
                 from core import apu_engine
-                apu_engine.armar_recursos_desde_analisis(it)
+                with st.spinner("Generando recursos con IA segun el contexto..."):
+                    apu_engine.armar_recursos_desde_analisis(it)
                 st.session_state[abierto_key] = True
                 st.rerun()
             st.caption("Genera el armado para revisar materiales, mano de obra "
                        "y equipo según las especificaciones.")
             return
 
+        # Indicador de origen de los recursos (IA o plantilla).
+        es_ia = any("hora" in (r.unidad or "").lower()
+                    for r in recursos if r.tipo in ("mano_obra", "equipo"))
+        if es_ia:
+            st.caption("Recursos generados con IA (mano de obra y equipo en horas).")
+        else:
+            st.warning("Estos recursos parecen genericos (plantilla, no IA). Si "
+                       "la IA esta activa, pulsa 'Rearmar con IA' abajo para "
+                       "regenerarlos segun el contexto del item.")
+            if st.button("Rearmar con IA", key=f"rearmar_{it.id}"):
+                from core import apu_engine
+                with st.spinner("Regenerando con IA..."):
+                    apu_engine.armar_recursos_desde_analisis(it)
+                st.session_state[abierto_key] = True
+                st.rerun()
+
         st.markdown("**Resultado del análisis (editable). Verifica que cumpla "
                     "las especificaciones técnicas:**")
-        _tabla_recursos(it, recursos, "material", " Materiales",
+        _tabla_recursos(it, recursos, "material", "Materiales",
                         "Unidad (kg, m3, pza, glb...)")
-        _tabla_recursos(it, recursos, "mano_obra", " Mano de obra",
+        _tabla_recursos(it, recursos, "mano_obra", "Mano de obra",
                         "Unidad (hora, día, mes)")
-        _tabla_recursos(it, recursos, "equipo", " Equipo / herramienta",
+        _tabla_recursos(it, recursos, "equipo", "Equipo / herramienta",
                         "Unidad (hora, día, mes)")
 
-        with st.popover(" Ver texto técnico / alcance"):
-            st.write(info.alcance or "—")
-            if spec:
-                st.divider()
+        spec = repositories.texto_tecnico_item(it.id)
+        if spec:
+            with st.popover("Ver texto técnico vinculado"):
                 st.caption(spec[:1500])
 
         # Validación armada final (no contrae el ítem)
