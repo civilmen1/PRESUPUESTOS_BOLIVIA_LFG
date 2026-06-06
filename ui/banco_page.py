@@ -23,20 +23,27 @@ def render(proyecto=None):
     n = len(banco_apu.listar_apus())
     st.metric("APUs en el banco", n)
 
+    st.caption("Formatos aceptados: Formulario B-2 (.xlsx) y presupuestos "
+               "BC3 / FIEBDC-3 (.bc3) exportados de CYPE, Arquimedes o Presto.")
     archivos = st.file_uploader(
-        "Archivos B-2 (Excel .xlsx)", type=["xlsx"], accept_multiple_files=True)
+        "Archivos B-2 (.xlsx) o BC3/FIEBDC-3 (.bc3)",
+        type=["xlsx", "bc3"], accept_multiple_files=True)
     reemplazar = st.checkbox("Reemplazar el banco (en vez de agregar)",
                              value=False)
 
     if archivos and st.button("Cargar al banco", type="primary"):
         from scripts.importar_apu_banco import importar, guardar_banco
+        from core import importador_bc3
         total_nuevos = 0
         primero = True
         for archivo in archivos:
             ruta = settings.UPLOAD_DIR / archivo.name
             ruta.write_bytes(archivo.getbuffer())
             try:
-                apus = importar(str(ruta))
+                if archivo.name.lower().endswith(".bc3"):
+                    apus = importador_bc3.extraer_apus(archivo.getbuffer())
+                else:
+                    apus = importar(str(ruta))
                 guardar_banco(apus, proyecto=archivo.name,
                               reemplazar=reemplazar and primero)
                 primero = False

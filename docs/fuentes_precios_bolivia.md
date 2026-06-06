@@ -126,8 +126,20 @@ nacional), **CADECOCBBA** (Cochabamba) — todas usan la misma estructura de APU
 ## Cómo usar estas fuentes con el programa
 1. Descarga DBC/presupuestos desde **SICOES** (B-2 en Excel cuando esté) — es la
    fuente prioritaria de APUs oficiales reales.
-2. Menú **"Banco de APU"** → "Cargar al banco" → sube los .xlsx.
+2. Menú **"Banco de APU"** → "Cargar al banco" → sube los archivos.
 3. El programa extrae materiales, mano de obra y equipo con sus precios y los usa
    como referencia prioritaria (similitud Jaccard) al generar nuevos APU.
 4. Para precios de insumos puntuales, consulta INSUCONS / CYPE Bolivia / revista
    "Construir" y ajústalos en el editor de recursos.
+
+### Formatos que importa el Banco de APU (sin consumir tokens)
+- **Formulario B-2 (.xlsx)** — formato oficial boliviano (de SICOES, tesis, etc.).
+- **BC3 / FIEBDC-3 (.bc3)** — estándar de intercambio de presupuestos. Es la vía
+  para traer datos de **CYPE Generador de precios Bolivia** (exporta a BC3),
+  Arquímedes o Presto. El importador reconstruye cada partida con su descomposición
+  en materiales (mt), mano de obra (mo) y equipo (mq), con sus rendimientos y
+  precios elementales. Implementado en `core/importador_bc3.py`.
+
+> Pendiente: **YPFB "Costos Unitarios Elementales"** — requiere abrir el archivo
+> real (`contrataciones.ypfb.gob.bo/.../1071000000017253`) para conocer su formato
+> exacto y escribir su parser. No se pudo descargar durante la investigación.
