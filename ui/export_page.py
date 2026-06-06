@@ -55,11 +55,11 @@ def render(proyecto):
                                mime="application/vnd.openxmlformats-officedocument."
                                     "spreadsheetml.sheet", use_container_width=True)
 
-    if c2.button(" Generar PDF", use_container_width=True):
+    if c2.button("Formularios en PDF", use_container_width=True):
         ruta = exportar_pdf(proyecto.id)
         with open(ruta, "rb") as fh:
-            st.download_button(" Descargar PDF", fh, file_name=ruta.name,
-                               use_container_width=True)
+            st.download_button("Descargar PDF (formato formularios)", fh,
+                               file_name=ruta.name, use_container_width=True)
 
     if c3.button(" Generar JSON", use_container_width=True):
         ruta = exportar_json(proyecto.id)
