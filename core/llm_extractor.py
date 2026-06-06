@@ -64,38 +64,70 @@ def ollama_disponible() -> bool:
 # 1) Extracción estructurada de partidas (rol: GPT-4o)
 # --------------------------------------------------------------------------- #
 _PROMPT_EXTRACCION = """\
-Eres un ingeniero de costos en Bolivia que arma Análisis de Precios Unitarios.
+Eres un INGENIERO CIVIL ESPECIALISTA EN COSTOS de Bolivia con 20 anios de
+experiencia elaborando Analisis de Precios Unitarios (APU) bajo la norma
+NB-SABS (DS 0181). Conoces los rendimientos reales de la construccion boliviana.
 
-Para el ÍTEM y su ESPECIFICACIÓN, genera la lista COMPLETA de recursos
-necesarios para EJECUTAR ese ítem (alcanzar su objetivo), razonando según el
-CONTEXTO aunque la especificación no los detalle explícitamente.
+TAREA: Para el ITEM dado y su ESPECIFICACION, genera la lista COMPLETA y
+REALISTA de recursos (materiales, mano de obra y equipo) necesarios para
+ejecutar UNA UNIDAD del item. Razona por el TIPO de actividad aunque la
+especificacion no detalle todo.
 
-Reglas obligatorias:
-- MATERIALES: cada uno con su unidad real (kg, m3, m2, ml, bolsa, pza, lt, glb)
-  y la cantidad por UNIDAD del ítem.
-- MANO DE OBRA: siempre con unidad "hora" y la cantidad de horas por unidad.
-- EQUIPO/HERRAMIENTA: siempre con unidad "hora" y la cantidad de horas por unidad.
-- Incluye los recursos mínimos imprescindibles aunque la especificación los omita.
+REGLAS DE CALIDAD (obligatorias):
+1. COHERENCIA: los recursos deben corresponder al tipo de obra. Ej.: un letrero
+   metalico NO lleva tuberia PVC; una excavacion NO lleva cemento salvo que se
+   indique. Piensa: que se usa REALMENTE para esta actividad.
+2. MATERIALES: unidad real (kg, m3, m2, ml, bolsa, pza, lt, glb, p2) y cantidad
+   por unidad del item, con desperdicio razonable.
+3. MANO DE OBRA: SIEMPRE unidad "hora". Indica las cuadrillas que correspondan
+   (ej. soldador para estructura metalica, plomero para sanitario, pintor para
+   pintura, fierrista para armaduras). Cantidad = horas-hombre por unidad.
+4. EQUIPO/HERRAMIENTA: SIEMPRE unidad "hora". Incluye el equipo especifico de la
+   actividad (ej. soldadora para soldadura, mezcladora+vibradora para hormigon).
+5. Incluye "Herramientas menores" como equipo cuando aplique.
+6. Cantidades realistas (rendimientos bolivianos), no genericas.
 
-Ítem: {item}
-Unidad del ítem: {unidad}
+EJEMPLO 1 - Item: "Hormigon armado para zapatas H21", unidad m3:
+{{"alcance":"Provision y vaciado de hormigon armado H21 para zapatas",
+"normas":["NB 1225001"],"medicion":"metro cubico (m3)",
+"recursos":[
+{{"tipo":"material","descripcion":"Cemento Portland IP-30","unidad":"bolsa","cantidad":7.0}},
+{{"tipo":"material","descripcion":"Arena","unidad":"m3","cantidad":0.5}},
+{{"tipo":"material","descripcion":"Grava","unidad":"m3","cantidad":0.8}},
+{{"tipo":"material","descripcion":"Acero corrugado fy=4200","unidad":"kg","cantidad":80.0}},
+{{"tipo":"material","descripcion":"Madera para encofrado","unidad":"p2","cantidad":6.0}},
+{{"tipo":"mano_obra","descripcion":"Albanil","unidad":"hora","cantidad":8.0}},
+{{"tipo":"mano_obra","descripcion":"Fierrista","unidad":"hora","cantidad":6.0}},
+{{"tipo":"mano_obra","descripcion":"Ayudante","unidad":"hora","cantidad":16.0}},
+{{"tipo":"equipo","descripcion":"Mezcladora de hormigon","unidad":"hora","cantidad":2.0}},
+{{"tipo":"equipo","descripcion":"Vibradora de inmersion","unidad":"hora","cantidad":1.5}},
+{{"tipo":"equipo","descripcion":"Herramientas menores","unidad":"hora","cantidad":1.0}}]}}
 
-ESPECIFICACIÓN:
+EJEMPLO 2 - Item: "Letrero de obra de estructura metalica 7.00x4.8 m", unidad pza:
+{{"alcance":"Provision y montaje de letrero de obra con estructura metalica",
+"normas":[],"medicion":"pieza (pza)",
+"recursos":[
+{{"tipo":"material","descripcion":"Poste metalico perfil costanera 80x40x15x2mm","unidad":"ml","cantidad":10.0}},
+{{"tipo":"material","descripcion":"Letrero banner con bastidor metalico","unidad":"glb","cantidad":1.0}},
+{{"tipo":"material","descripcion":"Electrodos para soldadura","unidad":"kg","cantidad":1.0}},
+{{"tipo":"material","descripcion":"Cemento Portland IP-40","unidad":"kg","cantidad":50.0}},
+{{"tipo":"material","descripcion":"Arena","unidad":"m3","cantidad":0.25}},
+{{"tipo":"material","descripcion":"Grava","unidad":"m3","cantidad":0.5}},
+{{"tipo":"mano_obra","descripcion":"Soldador","unidad":"hora","cantidad":15.0}},
+{{"tipo":"mano_obra","descripcion":"Albanil","unidad":"hora","cantidad":4.0}},
+{{"tipo":"mano_obra","descripcion":"Ayudante","unidad":"hora","cantidad":12.0}},
+{{"tipo":"equipo","descripcion":"Equipo de soldadura","unidad":"hora","cantidad":15.0}},
+{{"tipo":"equipo","descripcion":"Herramientas menores","unidad":"hora","cantidad":1.0}}]}}
+
+AHORA GENERA EL APU PARA:
+Item: {item}
+Unidad del item: {unidad}
+ESPECIFICACION:
 \"\"\"
 {spec}
 \"\"\"
 
-Devuelve SOLO un JSON válido (sin texto adicional) con esta forma exacta:
-{{
-  "alcance": "resumen del alcance en 1-2 frases",
-  "normas": ["NB 1225001"],
-  "medicion": "unidad y forma de pago",
-  "recursos": [
-    {{"tipo": "material", "descripcion": "Cemento Portland", "unidad": "bolsa", "cantidad": 7.0}},
-    {{"tipo": "mano_obra", "descripcion": "Albañil", "unidad": "hora", "cantidad": 8.0}},
-    {{"tipo": "equipo", "descripcion": "Mezcladora de hormigón", "unidad": "hora", "cantidad": 2.0}}
-  ]
-}}
+Devuelve SOLO un JSON valido con la misma forma de los ejemplos (sin texto extra).
 """
 
 
@@ -122,7 +154,16 @@ def extraer_estructurado(item_descripcion: str, spec: str, item_id: int = 0,
 
     if not contenido:
         return None
-    return _json_a_info(contenido, item_id, item_descripcion, spec)
+    info = _json_a_info(contenido, item_id, item_descripcion, spec)
+    # Control de calidad: la IA debe entregar al menos mano de obra (toda
+    # actividad la necesita). Si la salida es vacia o absurda, se descarta.
+    detalle = getattr(info, "recursos_detalle", []) or []
+    tiene_mo = any(d.get("tipo") == "mano_obra" for d in detalle)
+    if not detalle or not tiene_mo:
+        logger.warning("Salida de IA pobre para '%s' (%d recursos); se descarta",
+                       item_descripcion[:40], len(detalle))
+        return None
+    return info
 
 
 # --------------------------------------------------------------------------- #
