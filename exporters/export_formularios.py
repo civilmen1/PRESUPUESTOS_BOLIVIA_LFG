@@ -205,7 +205,7 @@ def _b2_una_hoja_por_item(wb, proyecto, items):
         _b2_item(ws, proyecto, it, recursos)
     if n == 0:  # sin ítems con recursos: hoja informativa
         ws = wb.create_sheet("B-2 APU")
-        fila = _encabezado(ws, "B-2", "Análisis de Precios Unitarios", proyecto, 5)
+        fila = _encabezado(ws, "B-2", "Análisis de Precio Unitario", proyecto, 5)
         _set(ws, f"A{fila}", "Genere los APU antes de exportar.", _F_NORM, _LEFT)
         _config_pagina(ws, 5)
 
@@ -213,7 +213,7 @@ def _b2_una_hoja_por_item(wb, proyecto, items):
 def _b2_item(ws, proyecto, it, recursos):
     """Escribe el Formulario B-2 de un único ítem en su propia hoja, con fórmulas."""
     headers_cols = "ABCDE"
-    fila = _encabezado(ws, "B-2", "Análisis de Precios Unitarios", proyecto, 5)
+    fila = _encabezado(ws, "B-2", "Análisis de Precio Unitario", proyecto, 5)
 
     # Datos del ítem
     ws.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=5)
@@ -232,8 +232,9 @@ def _b2_item(ws, proyecto, it, recursos):
     for col, w in zip("ABCDE", [46, 10, 13, 15, 16]):
         ws.column_dimensions[col].width = w
 
-    _fila_headers(ws, fila, ["Descripción", "Unidad", "Cantidad / Rendim.",
-                             f"Precio Unit. ({_sim()})", f"Parcial ({_sim()})"],
+    _fila_headers(ws, fila, ["DESCRIPCION", "UNIDAD", "CANTIDAD",
+                             f"PRECIO PRODUCTIVO ({_sim()})",
+                             f"COSTO TOTAL ({_sim()})"],
                   [46, 10, 13, 15, 16])
     fila += 1
     ini_recursos = fila
@@ -307,24 +308,28 @@ def _b2_item(ws, proyecto, it, recursos):
                           fill=True)
     r_c = fila - 1
 
-    # ---- Totales finales ----
+    # ---- Totales finales (numeracion oficial del Formulario B-2) ----
     r_a = grupos[TIPO_MATERIAL]["subtotal_row"]
-    fila = _linea_formula(ws, fila, "4. COSTO DIRECTO (A + B + C)",
+    fila = _linea_formula(ws, fila, "COSTO DIRECTO (1 + 2 + 3)",
                           f"=E{r_a}+E{r_b}+E{r_c}", negrita=True, fill=True)
     r_cd = fila - 1
     f_gg = proyecto.factor_gastos_generales
-    fila = _linea_formula(ws, fila, f"5. GASTOS GENERALES ({f_gg*100:.2f}%)",
+    fila = _linea_formula(ws, fila,
+                          f"4. GASTOS GENERALES = {f_gg*100:.2f}% DE 1 + 2 + 3",
                           f"=E{r_cd}*{f_gg}")
     r_gg = fila - 1
     f_ut = proyecto.factor_utilidad_sabs
-    fila = _linea_formula(ws, fila, f"6. UTILIDAD ({f_ut*100:.2f}%)",
+    fila = _linea_formula(ws, fila,
+                          f"5. UTILIDAD = {f_ut*100:.2f}% DE 1 + 2 + 3 + 4",
                           f"=(E{r_cd}+E{r_gg})*{f_ut}")
     r_ut = fila - 1
     f_it = proyecto.factor_it
-    fila = _linea_formula(ws, fila, f"7. IMPUESTOS IT ({f_it*100:.2f}%)",
+    fila = _linea_formula(ws, fila,
+                          f"6. IMPUESTOS IT = {f_it*100:.2f}% DE 1 + 2 + 3 + 4 + 5",
                           f"=(E{r_cd}+E{r_gg}+E{r_ut})*{f_it}")
     r_it = fila - 1
-    fila = _linea_formula(ws, fila, f"PRECIO UNITARIO TOTAL ({_sim()})",
+    fila = _linea_formula(ws, fila,
+                          f"TOTAL PRECIO UNITARIO (1+2+3+4+5+6) ({_sim()})",
                           f"=E{r_cd}+E{r_gg}+E{r_ut}+E{r_it}", negrita=True,
                           fill=True)
 

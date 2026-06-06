@@ -8,7 +8,7 @@ from ui.components import requiere_proyecto
 
 
 def render(proyecto):
-    st.title(" Dashboard")
+    st.title("PRESUPUESTO BOLIVIA con IA")
     if not requiere_proyecto(proyecto):
         return
 

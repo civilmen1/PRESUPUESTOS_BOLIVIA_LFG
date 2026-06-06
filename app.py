@@ -30,7 +30,7 @@ def _inicializar() -> bool:
 
 # Perfil 1: Contratistas / Entidades  generación de APUs con IA
 PAGINAS_CONTRATISTA = {
-    " Dashboard": dashboard.render,
+    "PRESUPUESTO BOLIVIA con IA": dashboard.render,
     " Ítems": items_page.render,
     " Documentos técnicos": documents_page.render,
     " Vinculación técnica": linking_page.render,
