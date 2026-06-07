@@ -40,11 +40,26 @@ def _num(v):
 
 
 def importar(ruta: str) -> list[dict]:
-    """Devuelve la lista de APUs extraidos del Excel B-2."""
-    wb = load_workbook(ruta, data_only=True)
-    ws = wb[wb.sheetnames[0]]
-    filas = list(ws.iter_rows(values_only=True))
+    """Devuelve la lista de APUs extraidos del Excel.
 
+    Recorre TODAS las hojas y reconoce dos formatos de Formulario B-2:
+      - 'estandar': etiquetas en celdas ('Actividad' en col C, valor en col E).
+      - 'vertical': cabecera 'ACTIVIDAD:/UNITARIO:/CANTIDAD:' en col A y
+        secciones '1.- MATERIALES', '2.- MANO DE OBRA', '3.- EQUIPO...'.
+    """
+    wb = load_workbook(ruta, data_only=True)
+    apus: list[dict] = []
+    for hoja in wb.sheetnames:
+        filas = list(wb[hoja].iter_rows(values_only=True))
+        extraidos = _extraer_estandar(filas)
+        if not extraidos:
+            extraidos = _extraer_vertical(filas)
+        apus.extend(extraidos)
+    return apus
+
+
+def _extraer_estandar(filas: list) -> list[dict]:
+    """Formato con etiquetas en celdas: 'Actividad'/'Unidad'/'Cantidad' en col C."""
     apus: list[dict] = []
     actual = None
     seccion = None  # material | mano_obra | equipo
@@ -98,6 +113,94 @@ def importar(ruta: str) -> list[dict]:
             actual[seccion].append({
                 "codigo": b, "descripcion": c, "unidad": f,
                 "cantidad": _num(h), "precio": _num(i)})
+
+    if actual and (actual["materiales"] or actual["mano_obra"]
+                   or actual["equipo"]):
+        apus.append(actual)
+    return apus
+
+
+# Descripciones que NO son recursos sino lineas de calculo/totales del B-2.
+_EXCLUIR_VERTICAL = (
+    "total", "subtotal", "beneficios sociales", "impuesto al valor",
+    "impuesto a las transacc", "gastos generales", "utilidad", "herramientas - %",
+)
+
+
+def _es_recurso_vertical(desc: str) -> bool:
+    dn = normalizar(desc)
+    if not dn:
+        return False
+    if "%" in desc:  # lineas de porcentaje (beneficios, IVA, herramientas, IT...)
+        return False
+    return not any(k in dn for k in _EXCLUIR_VERTICAL)
+
+
+def _valor_etiqueta(texto: str) -> str:
+    """De 'ACTIVIDAD:   1.1   Instalacion' devuelve 'Instalacion' (tras los ':')."""
+    val = texto.split(":", 1)[1] if ":" in texto else texto
+    return " ".join(val.split()).strip()
+
+
+def _extraer_vertical(filas: list) -> list[dict]:
+    """Formato vertical: 'ACTIVIDAD:/UNITARIO:/CANTIDAD:' en col A y secciones
+    '1.- MATERIALES', '2.- MANO DE OBRA', '3.- EQUIPO Y HERRAMIENTAS'.
+
+    Columnas de recurso (0-index): 1=Descripcion, 2=Unidad, 3=Cantidad,
+    6=Precio Productivo (unitario)."""
+    apus: list[dict] = []
+    actual = None
+    seccion = None
+    for row in filas:
+        cols = [_txt(c) for c in row]
+        a = cols[0] if cols else ""
+        an = normalizar(a)
+        b = cols[1] if len(cols) > 1 else ""
+        bn = normalizar(b)
+
+        if an.startswith("actividad"):
+            if actual and (actual["materiales"] or actual["mano_obra"]
+                           or actual["equipo"]):
+                apus.append(actual)
+            actual = {"actividad": _valor_etiqueta(a) or "Actividad",
+                      "unidad": "", "cantidad": 1.0,
+                      "materiales": [], "mano_obra": [], "equipo": []}
+            seccion = None
+            continue
+        if actual is None:
+            continue
+        if an.startswith("unitario") or an.startswith("unidad"):
+            actual["unidad"] = _valor_etiqueta(a)
+            continue
+        if an.startswith("cantidad"):
+            actual["cantidad"] = _num(_valor_etiqueta(a)) or 1.0
+            continue
+
+        # Cambios de seccion: 'N.-' en col A y nombre en col B.
+        if a.startswith("1") and "material" in bn:
+            seccion = "materiales"
+            continue
+        if a.startswith("2") and "mano de obra" in bn:
+            seccion = "mano_obra"
+            continue
+        if a.startswith("3") and ("equipo" in bn or "maquinaria" in bn
+                                  or "herramient" in bn):
+            seccion = "equipo"
+            continue
+        if a.startswith(("4", "5", "6")) and b:
+            seccion = None
+            continue
+
+        # Fila de recurso del formato vertical.
+        if seccion and _es_recurso_vertical(b):
+            unidad = cols[2] if len(cols) > 2 else ""
+            cantidad = _num(cols[3]) if len(cols) > 3 else 0.0
+            precio = _num(cols[6]) if len(cols) > 6 else 0.0
+            if cantidad <= 0 and precio <= 0:
+                continue
+            actual[seccion].append({
+                "codigo": "", "descripcion": b, "unidad": unidad,
+                "cantidad": cantidad, "precio": precio})
 
     if actual and (actual["materiales"] or actual["mano_obra"]
                    or actual["equipo"]):
