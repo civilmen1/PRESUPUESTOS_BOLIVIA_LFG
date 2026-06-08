@@ -280,7 +280,7 @@ def _ollama_json(prompt: str, modelo: str) -> Optional[str]:
             f"{settings.OLLAMA_HOST}/api/generate",
             json={"model": modelo, "prompt": prompt, "stream": False,
                   "format": "json", "options": {"temperature": 0.1}},
-            timeout=120)
+            timeout=settings.OLLAMA_TIMEOUT)
         resp.raise_for_status()
         return resp.json().get("response", "")
     except Exception:

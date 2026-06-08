@@ -152,7 +152,11 @@ VINCULACION_LOTE = int(os.getenv("VINCULACION_LOTE", "8"))
 # Instala Ollama (https://ollama.com) y un modelo: `ollama pull llama3.1`
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 # Modelo liviano por defecto, apto para PCs con 8 GB de RAM.
+# Para PCs potentes (>=24 GB RAM/VRAM) usa: OLLAMA_MODEL=qwen3-coder:30b
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
+# Timeout (s) por llamada a Ollama. Los modelos grandes (30B) tardan mas,
+# sobre todo en CPU; subelo si ves cortes con 'qwen3-coder:30b'.
+OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "300"))
 USAR_OLLAMA = os.getenv("USAR_OLLAMA", "false").lower() in {"1", "true", "yes"}
 # IA EN LINEA GRATIS (Groq): modelos en la nube, rapidos y sin costo. Compatible
 # con la API de OpenAI. Consigue tu clave gratis en https://console.groq.com/keys
