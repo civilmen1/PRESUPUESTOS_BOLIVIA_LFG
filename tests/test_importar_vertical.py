@@ -111,3 +111,55 @@ def test_importa_formato_flexible(tmp_path):
     assert a["materiales"][0]["unidad"] == "Mts"
     assert a["materiales"][0]["cantidad"] == 45
     assert a["materiales"][0]["precio"] == 4.74
+
+
+def _crear_xlsx_europeo(ruta):
+    """Formato con etiqueta 'Item:', secciones por letra (A/B/C) y numeros en
+    formato europeo (1.234,56) guardados como texto."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Hoja1"
+    filas = [
+        [None, "Item: Cimiento de Hº Cº", None, "Unidad: m³"],
+        [None, "Proyecto: Obra Y"],
+        [None, "Módulo: (M01) - Muros"],
+        ["Nº", "P.", "Insumo/Parámetro", "Und.", "Cant.", "Unit. (Bs)",
+         "Parcial (Bs)"],
+        [">", "A", "MATERIALES", None, None, None, None],
+        ["1", "-", "CEMENTO PORTLAND", "kg", "120,00", "1.100,00", "132.000,00"],
+        ["2", "-", "ARENA COMUN", "m³", "0,20", "120,00", "24,00"],
+        [">", "D", "TOTAL MATERIALES", None, None, "(A) =", "288,00"],
+        [None, "B", "MANO DE OBRA", None, None, None, None],
+        ["1", "-", "ALBAÑIL", "hr", "5,00", "20,00", "100,00"],
+        [">", "E", "SUBTOTAL MANO DE OBRA", None, None, "(B) =", "175,00"],
+        [None, "F", "Beneficios Sociales", None, "55,00% de", "(B) =", "96,25"],
+        [None, "C", "EQUIPO, MAQUINARIA Y HERRAMIENTAS", None, None, None, None],
+        ["1", "-", "MEZCLADORA", "hr", "2,00", "1.250,00", "2.500,00"],
+        [None, "H", "Herramientas menores", None, "5,00% de", "(G) =", "8,75"],
+    ]
+    for f in filas:
+        ws.append(f)
+    wb.save(ruta)
+
+
+def test_importa_formato_europeo_por_letras(tmp_path):
+    ruta = tmp_path / "europeo.xlsx"
+    _crear_xlsx_europeo(str(ruta))
+    apus = importar(str(ruta))
+    assert len(apus) == 1
+    a = apus[0]
+    assert a["actividad"].startswith("Cimiento")
+    assert a["unidad"] == "m³"
+    # numeros europeos parseados (1.100,00 -> 1100.0; 0,20 -> 0.2)
+    assert [m["descripcion"] for m in a["materiales"]] == [
+        "CEMENTO PORTLAND", "ARENA COMUN"]
+    assert a["materiales"][0]["precio"] == 1100.0
+    assert a["materiales"][1]["cantidad"] == 0.2
+    assert [m["descripcion"] for m in a["mano_obra"]] == ["ALBAÑIL"]
+    assert [m["descripcion"] for m in a["equipo"]] == ["MEZCLADORA"]
+    assert a["equipo"][0]["precio"] == 1250.0
+    # nada de totales/% colado
+    todas = [m["descripcion"] for g in ("materiales", "mano_obra", "equipo")
+             for m in a[g]]
+    assert not any("TOTAL" in d.upper() or "Beneficios" in d or "Herramientas" in d
+                   for d in todas)
