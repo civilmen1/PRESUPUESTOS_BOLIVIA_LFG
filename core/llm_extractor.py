@@ -80,7 +80,8 @@ REGLAS DE CALIDAD (obligatorias):
    indique. Piensa: que se usa REALMENTE para esta actividad.
 2. MATERIALES: unidad real (kg, m3, m2, ml, bolsa, pza, lt, glb, p2) y cantidad
    por unidad del item, con desperdicio razonable.
-3. MANO DE OBRA: SIEMPRE unidad "hora". Indica las cuadrillas que correspondan
+3. MANO DE OBRA: SIEMPRE unidad "hora" (NUNCA "jornal" ni "dia"). No uses el
+   termino "peon" (di "ayudante"). Indica las cuadrillas que correspondan
    (ej. soldador para estructura metalica, plomero para sanitario, pintor para
    pintura, fierrista para armaduras). Cantidad = horas-hombre por unidad.
 4. EQUIPO/HERRAMIENTA: SIEMPRE unidad "hora". Incluye el equipo especifico de la

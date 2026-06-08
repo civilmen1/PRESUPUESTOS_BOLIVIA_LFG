@@ -23,6 +23,11 @@ MAX_BS_HORA = 50.0
 
 # "peón" / "peones" -> "ayudante" / "ayudantes" (respetando mayúsculas).
 _PEON_RE = re.compile(r"\bpe[oó]n(es)?\b", re.IGNORECASE)
+# "jornal" / "jornales" como palabra: termino prohibido en descripciones.
+_JORNAL_RE = re.compile(r"\bjornal(es)?\b", re.IGNORECASE)
+# Unidades prohibidas para mano de obra/equipo (deben ir SIEMPRE en horas).
+_UNIDADES_PROHIBIDAS = {"jornal", "jornales", "jornada", "jornadas", "dia",
+                        "día", "dias", "días", "day", "days", "jor", "jrnl"}
 
 # Precio horario fijo por categoría de oficio (Bs/hora).
 _PRECIO_OFICIO = {
@@ -34,7 +39,7 @@ _PRECIO_OFICIO = {
 
 
 def limpiar_descripcion(desc: str) -> str:
-    """Reemplaza el término prohibido 'peón' por 'ayudante'."""
+    """Reemplaza términos prohibidos: 'peón' -> 'ayudante' y elimina 'jornal'."""
     if not desc:
         return desc
 
@@ -47,7 +52,30 @@ def limpiar_descripcion(desc: str) -> str:
             return base.capitalize()
         return base
 
-    return _PEON_RE.sub(_rep, desc)
+    txt = _PEON_RE.sub(_rep, desc)
+    # Quita la palabra 'jornal' (p.ej. "Jornal de albañil" -> "albañil").
+    txt = _JORNAL_RE.sub(" ", txt)
+    txt = re.sub(r"\s+", " ", txt).strip()
+    txt = re.sub(r"^de\s+", "", txt, flags=re.IGNORECASE).strip()
+    return txt or desc
+
+
+def unidad_mano_obra(tipo: str, unidad: str) -> str:
+    """Unidad que cumple la regla: mano de obra SIEMPRE en horas; el equipo,
+    si trae una unidad prohibida (jornal/día), también pasa a horas."""
+    u = (unidad or "").strip()
+    if tipo == "mano_obra":
+        return "HR"
+    if tipo == "equipo" and u.lower().strip(". ") in _UNIDADES_PROHIBIDAS:
+        return "HR"
+    return u
+
+
+def aplicar_reglas(tipo: str, descripcion: str, unidad: str) -> tuple:
+    """PORTON unico de reglas de mano de obra: devuelve (descripcion, unidad)
+    sin 'peón' ni 'jornal' y con la unidad correcta. NO toca el precio (eso lo
+    fija la cotización). Llamado al guardar y al leer cualquier recurso."""
+    return limpiar_descripcion(descripcion or ""), unidad_mano_obra(tipo, unidad)
 
 
 def _categoria_oficio(desc: str) -> str:
