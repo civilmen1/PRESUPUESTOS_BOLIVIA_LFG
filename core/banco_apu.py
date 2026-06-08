@@ -13,17 +13,32 @@ from functools import lru_cache
 from config import settings
 from core.text_cleaner import normalizar, tokenizar
 
-_RUTA = settings.DATA_DIR / "banco_apu.json"
+# Semilla versionada en el repo (banco inicial) y copia PERSISTENTE en el disco.
+_RUTA_SEED = settings.DATA_DIR / "banco_apu.json"
+_RUTA = settings.PERSIST_DIR / "banco_apu.json"
+
+
+def ruta_persistente():
+    """Ruta del banco en el disco persistente; la siembra desde el repo la
+    primera vez (para no perder los APU iniciales)."""
+    try:
+        if not _RUTA.exists() and _RUTA_SEED.exists() and _RUTA != _RUTA_SEED:
+            _RUTA.write_text(_RUTA_SEED.read_text(encoding="utf-8"),
+                             encoding="utf-8")
+    except Exception:
+        pass
+    return _RUTA
 
 
 @lru_cache(maxsize=1)
 def _cargar() -> dict:
     import json
-    try:
-        if _RUTA.exists():
-            return json.loads(_RUTA.read_text(encoding="utf-8"))
-    except Exception:
-        pass
+    for ruta in (ruta_persistente(), _RUTA_SEED):
+        try:
+            if ruta.exists():
+                return json.loads(ruta.read_text(encoding="utf-8"))
+        except Exception:
+            continue
     return {"apus": []}
 
 
@@ -103,7 +118,7 @@ def a_markdown(max_apus: int = 0) -> str:
 
 def guardar_markdown() -> str:
     """Guarda el banco en Markdown (data/banco_apu.md) y devuelve la ruta."""
-    ruta = settings.DATA_DIR / "banco_apu.md"
+    ruta = settings.PERSIST_DIR / "banco_apu.md"
     ruta.write_text(a_markdown(), encoding="utf-8")
     return str(ruta)
 

@@ -21,13 +21,18 @@ except Exception:  # pragma: no cover - dotenv es opcional
 # --------------------------------------------------------------------------- #
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
+# Directorio PERSISTENTE para datos de usuario que deben sobrevivir a los
+# redeploys: banco de APU, aportes pendientes, trafico. En la nube apunta al
+# disco montado (APU_PERSIST_DIR=/data); en local, a la carpeta data/ del repo.
+# DATA_DIR sigue siendo la SEMILLA del repo (banco inicial versionado).
+PERSIST_DIR = Path(os.getenv("APU_PERSIST_DIR", DATA_DIR))
 # Carpetas de trabajo configurables (en la nube conviene apuntarlas al disco
 # persistente, p.ej. /data/exports, para no depender de permisos en /app).
 EXPORT_DIR = Path(os.getenv("APU_EXPORT_DIR", BASE_DIR / "exports"))
 UPLOAD_DIR = Path(os.getenv("APU_UPLOAD_DIR", BASE_DIR / "uploads"))
 LOG_DIR = Path(os.getenv("APU_LOG_DIR", BASE_DIR / "logs"))
 
-for _d in (DATA_DIR, EXPORT_DIR, UPLOAD_DIR, LOG_DIR):
+for _d in (DATA_DIR, PERSIST_DIR, EXPORT_DIR, UPLOAD_DIR, LOG_DIR):
     try:
         _d.mkdir(parents=True, exist_ok=True)
     except OSError:

@@ -15,9 +15,12 @@ def _apu(nombre="Hormigon"):
 def _aislar(tmp_path, monkeypatch):
     from config import settings as s
     monkeypatch.setattr(s, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(s, "PERSIST_DIR", tmp_path)
     from core import moderacion, banco_apu
     monkeypatch.setattr(moderacion, "_RUTA", tmp_path / "aportes_pendientes.json")
     monkeypatch.setattr(banco_apu, "_RUTA", tmp_path / "banco_apu.json")
+    # Sin semilla del repo: el banco arranca vacio para aislar la prueba.
+    monkeypatch.setattr(banco_apu, "_RUTA_SEED", tmp_path / "seed_inexistente.json")
     banco_apu._cargar.cache_clear()
     return moderacion, banco_apu
 

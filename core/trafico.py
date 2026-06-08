@@ -12,7 +12,7 @@ from datetime import date, timedelta
 
 from config import settings
 
-_RUTA = settings.DATA_DIR / "trafico.json"
+_RUTA = settings.PERSIST_DIR / "trafico.json"
 
 
 def _leer() -> dict:
@@ -56,7 +56,7 @@ def resumen(pagina: str = "aportar", dias: int = 30) -> dict:
 
 def listar_aportes() -> list[dict]:
     """Aportes registrados en la pagina publica (nombre, correo, archivo, fecha)."""
-    ruta = settings.DATA_DIR / "aportes_banco.json"
+    ruta = settings.PERSIST_DIR / "aportes_banco.json"
     try:
         if ruta.exists():
             return json.loads(ruta.read_text(encoding="utf-8")).get("aportes", [])

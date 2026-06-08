@@ -20,7 +20,7 @@ from config import settings
 from core import banco_apu
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-_REGISTRO = settings.DATA_DIR / "aportes_banco.json"
+_REGISTRO = settings.PERSIST_DIR / "aportes_banco.json"
 
 
 def _registrar_aporte(nombre: str, correo: str, archivo: str, n_apus: int) -> None:

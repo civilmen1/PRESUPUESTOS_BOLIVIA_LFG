@@ -551,9 +551,11 @@ def _extraer_titulado(filas: list) -> list[dict]:
 
 def guardar_banco(apus: list[dict], proyecto: str = "",
                   reemplazar: bool = True) -> Path:
-    """Guarda los APUs en el banco. Si reemplazar=False, los AGREGA a lo existente
-    (evitando duplicados por nombre de actividad)."""
-    ruta = settings.DATA_DIR / "banco_apu.json"
+    """Guarda los APUs en el banco (disco persistente). Si reemplazar=False, los
+    AGREGA a lo existente (evitando duplicados por nombre de actividad)."""
+    from core import banco_apu
+    # Escribe en el disco persistente; siembra desde el repo si hace falta.
+    ruta = banco_apu.ruta_persistente()
     existentes: list[dict] = []
     if not reemplazar and ruta.exists():
         try:

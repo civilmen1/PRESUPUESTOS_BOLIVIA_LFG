@@ -20,6 +20,9 @@ services:
     envVars:
       - key: APU_DB_PATH
         value: /data/proveedores.db
+      # Datos de usuario persistentes (banco de APU, aportes, trafico).
+      - key: APU_PERSIST_DIR
+        value: /data
       - key: APU_EXPORT_DIR
         value: /data/exports
       - key: APU_UPLOAD_DIR

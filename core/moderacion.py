@@ -19,7 +19,7 @@ from datetime import datetime
 
 from config import settings
 
-_RUTA = settings.DATA_DIR / "aportes_pendientes.json"
+_RUTA = settings.PERSIST_DIR / "aportes_pendientes.json"
 
 
 def _leer() -> dict:
