@@ -104,6 +104,8 @@ def importar(ruta: str) -> list[dict]:
             extraidos = _extraer_vertical(filas)
         if not extraidos:
             extraidos = _extraer_flexible(filas)
+        if not extraidos:
+            extraidos = _extraer_titulado(filas)
         apus.extend(extraidos)
     return apus
 
@@ -417,6 +419,116 @@ def _extraer_flexible(filas: list) -> list[dict]:
             continue
 
         # 4) Fila de recurso segun las columnas detectadas.
+        if seccion and col_desc is not None and col_desc < len(cols) \
+                and not tiene_pct:
+            desc = cols[col_desc]
+            dn = normalizar(desc)
+            if desc and not any(dn.startswith(k) for k in _EXCLUIR_FLEX):
+                und = cols[col_und] if col_und is not None and \
+                    col_und < len(cols) else ""
+                cant = _num_col(col_cant)
+                precio = _num_col(col_precio)
+                if cant > 0 or precio > 0:
+                    actual[seccion].append({
+                        "codigo": "", "descripcion": desc, "unidad": und,
+                        "cantidad": cant, "precio": precio})
+
+    if actual and (actual["materiales"] or actual["mano_obra"]
+                   or actual["equipo"]):
+        apus.append(actual)
+    return apus
+
+
+def _extraer_titulado(filas: list) -> list[dict]:
+    """Formato delimitado por el titulo 'ANALISIS DE PRECIO UNITARIO', donde la
+    actividad y la unidad van en lineas SIN etiqueta (tras 'PROYECTO:') y el
+    precio esta en la subcolumna 'Productivo'."""
+    apus: list[dict] = []
+    actual = None
+    seccion = None
+    col_desc = col_und = col_cant = col_precio = None
+    fase = None  # None | 'act' (espera actividad) | 'und' (espera unidad)
+
+    def _nuevo(nombre):
+        return {"actividad": " ".join(nombre.split()) or "Actividad",
+                "unidad": "", "cantidad": 1.0,
+                "materiales": [], "mano_obra": [], "equipo": []}
+
+    def _primer_texto(cols):
+        for c in cols:
+            if c:
+                return c
+        return ""
+
+    for row in filas:
+        cols = [_txt(c) for c in row]
+        norm = [normalizar(c) for c in cols]
+        txt = _primer_texto(cols)
+        n = normalizar(txt)
+
+        if _es_encabezado(norm):
+            col_desc, col_und, col_cant, col_precio = _mapear_columnas(norm)
+            fase = None
+            continue
+        # Subfila Improductivo/Productivo -> el precio real es 'Productivo'.
+        if any("productiv" in x for x in norm) and \
+                any("improductiv" in x for x in norm):
+            for k, x in enumerate(norm):
+                if "productiv" in x and "improductiv" not in x:
+                    col_precio = k
+            continue
+
+        if n.startswith("analisis de precio"):
+            if actual and (actual["materiales"] or actual["mano_obra"]
+                           or actual["equipo"]):
+                apus.append(actual)
+            actual = None
+            seccion = None
+            col_desc = col_und = col_cant = col_precio = None
+            fase = "act"
+            continue
+
+        # Cabecera sin etiqueta: actividad y unidad en lineas sueltas.
+        if fase == "act":
+            if n.startswith(("proyecto", "moneda", "cantidad", "presup",
+                             "modulo", "item")):
+                continue
+            if txt:
+                actual = _nuevo(txt)
+                fase = "und"
+                continue
+        if fase == "und":
+            fase = None
+            if (txt and ":" not in txt and len(txt) <= 8
+                    and not _seccion_flex(txt)):
+                if actual:
+                    actual["unidad"] = txt
+                continue
+        if actual is None:
+            continue
+
+        if n.startswith("cantidad"):
+            actual["cantidad"] = _num(_valor_etiqueta_inline(txt)) or 1.0
+            continue
+        if n.startswith("moneda"):
+            continue
+
+        tiene_pct = any("%" in c for c in cols)
+
+        def _num_col(idx):
+            return (_num(cols[idx]) if idx is not None and idx < len(cols)
+                    else 0.0)
+
+        sec_detectada = None
+        for celda in cols:
+            sec_detectada = _seccion_flex(celda)
+            if sec_detectada:
+                break
+        if (sec_detectada and _num_col(col_cant) <= 0
+                and _num_col(col_precio) <= 0):
+            seccion = sec_detectada
+            continue
+
         if seccion and col_desc is not None and col_desc < len(cols) \
                 and not tiene_pct:
             desc = cols[col_desc]

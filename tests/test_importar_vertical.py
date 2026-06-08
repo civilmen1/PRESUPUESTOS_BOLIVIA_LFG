@@ -163,3 +163,54 @@ def test_importa_formato_europeo_por_letras(tmp_path):
              for m in a[g]]
     assert not any("TOTAL" in d.upper() or "Beneficios" in d or "Herramientas" in d
                    for d in todas)
+
+
+def _crear_xlsx_titulado(ruta):
+    """Formato delimitado por el titulo, con actividad y unidad en lineas sin
+    etiqueta y precio en la subcolumna 'Productivo'."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Análisis de Precio Unitario"
+    filas = [
+        [None, "ANALISIS DE PRECIO UNITARIO"],
+        [None, "PROYECTO: PTAR San Pablo"],
+        [None, "1 - INSTALACION DE FAENAS"],
+        [None, "GLB"],
+        [None, "Cantidad: 1.00"],
+        [None, "Moneda: BS"],
+        [None, "Descripción", "Und.", "Cantidad", "% Productiv.",
+         "Precio Unitario", None, None, "Costo Total"],
+        [None, None, None, None, None, "Improductivo", "Productiv.", None, None],
+        [None, "1.- MATERIALES E INSUMOS"],
+        [None, "CALAMINA GALVANIZADA", "M2", 26.5, None, None, 22.6723, "M",
+         600.81],
+        [None, "CLAVOS DE CALAMINA", "KG", 5.3, None, None, 15.77, "M", 83.58],
+        [None, "TOTAL MATERIALES E INSUMOS", None, None, None, None, None, None,
+         684.4],
+        [None, "2.- MANO DE OBRA"],
+        [None, "ALBANIL", "HR.", 139.295, None, None, 20.0998, "O", 2799.8],
+        [None, "TOTAL MANO DE OBRA", None, None, None, None, None, None, 2799.8],
+        [None, "3.- EQUIPO MAQUINARIA Y HERRAMIENTAS"],
+        [None, "HERRAMIENTAS - % A LA M.O.", None, None, None, 0.05, None, None,
+         140.0],
+    ]
+    for f in filas:
+        ws.append(f)
+    wb.save(ruta)
+
+
+def test_importa_formato_titulado(tmp_path):
+    ruta = tmp_path / "titulado.xlsx"
+    _crear_xlsx_titulado(str(ruta))
+    apus = importar(str(ruta))
+    assert len(apus) == 1
+    a = apus[0]
+    assert a["actividad"] == "1 - INSTALACION DE FAENAS"
+    assert a["unidad"] == "GLB"
+    # precio tomado de la subcolumna Productivo, no de Improductivo (vacia)
+    assert [m["descripcion"] for m in a["materiales"]] == [
+        "CALAMINA GALVANIZADA", "CLAVOS DE CALAMINA"]
+    assert a["materiales"][0]["precio"] == 22.6723
+    assert a["materiales"][0]["cantidad"] == 26.5
+    assert [m["descripcion"] for m in a["mano_obra"]] == ["ALBANIL"]
+    assert a["equipo"] == []  # solo habia la linea de herramientas (%)
