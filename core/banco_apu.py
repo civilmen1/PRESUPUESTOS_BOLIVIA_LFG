@@ -84,7 +84,17 @@ def restaurar(ruta_bak) -> int:
     respaldar(_RUTA, "previo-restaurar")
     _RUTA.write_text(ruta_bak.read_text(encoding="utf-8"), encoding="utf-8")
     _cargar.cache_clear()
+    _publicar_sync()
     return len(listar_apus())
+
+
+def _publicar_sync() -> None:
+    """Publica el banco para sincronizacion (no-op si no esta configurado)."""
+    try:
+        from core import sync
+        sync.publicar()
+    except Exception:
+        pass
 
 
 def cargar_desde_json(texto: str, fusionar: bool = False) -> int:
@@ -115,6 +125,7 @@ def cargar_desde_json(texto: str, fusionar: bool = False) -> int:
     ruta.write_text(json.dumps(datos, ensure_ascii=False, indent=2),
                     encoding="utf-8")
     _cargar.cache_clear()
+    _publicar_sync()
     return len(listar_apus())
 
 

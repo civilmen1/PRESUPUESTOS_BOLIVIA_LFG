@@ -5,6 +5,8 @@ address = "0.0.0.0"
 port = 8501
 enableCORS = false
 enableXsrfProtection = true
+# Sirve archivos de ./static (para publicar el banco y sincronizar el local).
+enableStaticServing = true
 maxUploadSize = 50
 
 [browser]

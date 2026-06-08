@@ -601,6 +601,11 @@ def guardar_banco(apus: list[dict], proyecto: str = "",
              "apus": existentes}
     ruta.write_text(json.dumps(banco, ensure_ascii=False, indent=2),
                     encoding="utf-8")
+    try:
+        from core import sync
+        sync.publicar()  # nube: refresca el banco publicado (no-op en local)
+    except Exception:
+        pass
     return {"ruta": ruta, "agregados": agregados, "actualizados": actualizados,
             "omitidos": omitidos, "total": len(existentes)}
 

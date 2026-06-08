@@ -25,6 +25,21 @@ def _inicializar() -> bool:
     """Inicializa logging y base de datos una sola vez por sesión."""
     setup_logging()
     init_db()
+    # Sincronizacion del banco (la NUBE manda):
+    #  - en la nube: publica el banco para que el local lo descargue.
+    #  - en local: baja el banco de la nube al abrir (si hay APU_SYNC_URL).
+    try:
+        from core import sync
+        sync.publicar()
+        if settings.SYNC_AL_ABRIR and settings.SYNC_URL:
+            res = sync.sincronizar_desde_nube(fusionar=True)
+            if res:
+                from config.logging_config import get_logger
+                get_logger(__name__).info(
+                    "Banco sincronizado desde la nube: %s nuevos (total %s)",
+                    res["nuevos"], res["despues"])
+    except Exception:
+        pass
     return True
 
 
