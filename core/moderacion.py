@@ -88,6 +88,31 @@ def aprobar(aporte_id: int) -> int:
     return n
 
 
+def aprobar_todos() -> int:
+    """Aprueba TODOS los aportes pendientes de una vez. Devuelve cuantos APUs
+    se incorporaron al banco en total."""
+    from scripts.importar_apu_banco import guardar_banco
+    from core import banco_apu
+
+    datos = _leer()
+    total = 0
+    for a in datos.get("aportes", []):
+        if a.get("estado") == "pendiente":
+            apus = a.get("apus", [])
+            guardar_banco(apus, proyecto=f"aporte:{a.get('nombre','')}",
+                          reemplazar=False)
+            a["estado"] = "aprobado"
+            total += len(apus)
+    _guardar(datos)
+    if total:
+        banco_apu._cargar.cache_clear()
+        try:
+            banco_apu.guardar_markdown()
+        except Exception:
+            pass
+    return total
+
+
 def rechazar(aporte_id: int) -> bool:
     """Marca un aporte como 'rechazado' (no entra al banco)."""
     datos = _leer()

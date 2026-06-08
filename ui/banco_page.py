@@ -98,6 +98,17 @@ def _panel_moderacion():
         st.info("No hay aportes pendientes de revision.")
         return
 
+    n_apus = sum(len(a.get("apus", [])) for a in pendientes)
+    c1, c2 = st.columns([3, 1])
+    c1.caption(f"Hay {len(pendientes)} aportes pendientes con {n_apus} APUs en "
+               "total. Revisalos abajo o incorporalos todos de una vez.")
+    if c2.button("Aprobar todos", type="primary", use_container_width=True):
+        total = moderacion.aprobar_todos()
+        banco_apu._cargar.cache_clear()
+        st.success(f"Aprobados todos los aportes: {total} APUs incorporados al "
+                   "banco.")
+        st.rerun()
+
     for a in pendientes:
         apus = a.get("apus", [])
         with st.expander(f"#{a['id']}  ·  {a.get('archivo','')}  ·  "
