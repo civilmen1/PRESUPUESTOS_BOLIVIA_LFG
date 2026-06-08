@@ -311,7 +311,16 @@ def texto_tecnico_item(item_id: int, solo_validados: bool = False,
 # --------------------------------------------------------------------------- #
 # Recursos APU
 # --------------------------------------------------------------------------- #
+def _aplicar_reglas_mo(r: RecursoAPU) -> None:
+    """Portón unico: ningun recurso se guarda/lee con 'peón', 'jornal' ni mano
+    de obra fuera de horas. Mutación in situ (sin tocar el precio)."""
+    from core import mano_obra
+    r.descripcion, r.unidad = mano_obra.aplicar_reglas(
+        r.tipo, r.descripcion, r.unidad)
+
+
 def guardar_recurso(r: RecursoAPU) -> int:
+    _aplicar_reglas_mo(r)
     with db_session() as conn:
         cur = conn.execute(
             """INSERT INTO recursos_apu
@@ -331,17 +340,22 @@ def listar_recursos(item_id: int) -> List[RecursoAPU]:
             (item_id,)).fetchall()
         out = []
         for r in filas:
-            out.append(RecursoAPU(
+            rec = RecursoAPU(
                 id=r["id"], item_id=r["item_id"], tipo=r["tipo"],
                 descripcion=r["descripcion"], unidad=r["unidad"],
                 rendimiento=r["rendimiento"], cantidad_apu=r["cantidad_apu"],
                 precio_unitario=r["precio_unitario"], subtotal=r["subtotal"],
                 fuente_precio=r["fuente_precio"] or "",
-                cotizacion_id=r["cotizacion_id"], bloqueado=bool(r["bloqueado"])))
+                cotizacion_id=r["cotizacion_id"], bloqueado=bool(r["bloqueado"]))
+            # Portón de lectura: corrige al vuelo recursos viejos (peón/jornal)
+            # sin necesidad de migrar la base.
+            _aplicar_reglas_mo(rec)
+            out.append(rec)
         return out
 
 
 def actualizar_recurso(r: RecursoAPU) -> None:
+    _aplicar_reglas_mo(r)
     with db_session() as conn:
         conn.execute(
             """UPDATE recursos_apu SET tipo=?, descripcion=?, unidad=?, rendimiento=?,
