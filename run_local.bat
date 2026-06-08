@@ -11,8 +11,9 @@ REM  qwen2.5:7b / qwen2.5:3b  -> alternativas mas livianas
 set "MODELO=qwen3-coder:30b"
 REM Modelo de embeddings para la busqueda semantica.
 set "EMBED=nomic-embed-text"
-REM Puerto de la app.
-set "PUERTO=8501"
+REM Puerto de la app. Si Windows (Hyper-V/WSL/Docker) reserva el 8501, usamos
+REM otro libre. Puedes cambiarlo si este tambien estuviera ocupado.
+set "PUERTO=8600"
 
 echo.
 echo [1/5] Verificando Ollama...
