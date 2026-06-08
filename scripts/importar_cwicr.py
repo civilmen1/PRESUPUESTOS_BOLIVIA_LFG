@@ -151,11 +151,12 @@ def main() -> None:
               f"EQ:{len(a['equipo'])}")
     if "--guardar" in sys.argv and apus:
         from scripts.importar_apu_banco import guardar_banco
-        salida = guardar_banco(apus, proyecto="CWICR", reemplazar=False)
+        res = guardar_banco(apus, proyecto="CWICR", reemplazar=False)
         from core import banco_apu
         banco_apu._cargar.cache_clear()
-        print(f"Agregado al banco -> {salida}. Recuerda repreciar con tarifas "
-              "bolivianas (los precios entran en 0).")
+        print(f"Agregados {res['agregados']}, actualizados {res['actualizados']}, "
+              f"omitidos {res['omitidos']}. Total en banco: {res['total']}. "
+              "Recuerda repreciar con tarifas bolivianas (los precios entran en 0).")
 
 
 if __name__ == "__main__":

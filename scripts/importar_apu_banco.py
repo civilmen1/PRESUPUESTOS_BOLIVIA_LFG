@@ -550,9 +550,17 @@ def _extraer_titulado(filas: list) -> list[dict]:
 
 
 def guardar_banco(apus: list[dict], proyecto: str = "",
-                  reemplazar: bool = True) -> Path:
-    """Guarda los APUs en el banco (disco persistente). Si reemplazar=False, los
-    AGREGA a lo existente (evitando duplicados por nombre de actividad)."""
+                  reemplazar: bool = True,
+                  actualizar_duplicados: bool = False) -> dict:
+    """Guarda los APUs en el banco (disco persistente).
+
+    - reemplazar=True: sustituye todo el banco por `apus`.
+    - reemplazar=False: AGREGA a lo existente. Si una actividad ya existe:
+        * actualizar_duplicados=True  -> la ACTUALIZA (refresca precios).
+        * actualizar_duplicados=False -> la OMITE (no duplica).
+
+    Devuelve un resumen: {ruta, agregados, actualizados, omitidos, total}.
+    """
     from core import banco_apu
     # Escribe en el disco persistente; siembra desde el repo si hace falta.
     ruta = banco_apu.ruta_persistente()
@@ -565,18 +573,36 @@ def guardar_banco(apus: list[dict], proyecto: str = "",
                 "apus", [])
         except Exception:
             existentes = []
-    vistos = {normalizar(a.get("actividad", "")) for a in existentes}
+    indice: dict[str, int] = {}
+    for i, a in enumerate(existentes):
+        k = normalizar(a.get("actividad", ""))
+        if k:
+            indice.setdefault(k, i)
+
+    agregados = actualizados = omitidos = 0
     for a in apus:
         clave = normalizar(a.get("actividad", ""))
-        if clave and clave not in vistos:
+        if not clave:
+            omitidos += 1
+            continue
+        if clave in indice:
+            if actualizar_duplicados:
+                existentes[indice[clave]] = a
+                actualizados += 1
+            else:
+                omitidos += 1
+        else:
+            indice[clave] = len(existentes)
             existentes.append(a)
-            vistos.add(clave)
+            agregados += 1
+
     banco = {"_descripcion": "Banco de APU de referencia (rendimientos y precios "
              "reales). Usado por el motor y la IA.", "proyecto": proyecto,
              "apus": existentes}
     ruta.write_text(json.dumps(banco, ensure_ascii=False, indent=2),
                     encoding="utf-8")
-    return ruta
+    return {"ruta": ruta, "agregados": agregados, "actualizados": actualizados,
+            "omitidos": omitidos, "total": len(existentes)}
 
 
 def main() -> None:
@@ -588,8 +614,10 @@ def main() -> None:
     if "--proyecto" in sys.argv:
         proyecto = sys.argv[sys.argv.index("--proyecto") + 1]
     apus = importar(ruta)
-    salida = guardar_banco(apus, proyecto)
-    print(f"Importados {len(apus)} APUs -> {salida}")
+    res = guardar_banco(apus, proyecto)
+    print(f"Importados {len(apus)} APUs -> agregados {res['agregados']}, "
+          f"actualizados {res['actualizados']}, omitidos {res['omitidos']}. "
+          f"Total en banco: {res['total']}")
     # resumen
     for a in apus[:5]:
         print(f"  - {a['actividad'][:50]} [{a['unidad']}] "
