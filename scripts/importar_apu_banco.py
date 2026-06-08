@@ -556,6 +556,8 @@ def guardar_banco(apus: list[dict], proyecto: str = "",
     from core import banco_apu
     # Escribe en el disco persistente; siembra desde el repo si hace falta.
     ruta = banco_apu.ruta_persistente()
+    # Respaldo de seguridad antes de tocar el banco (sobre todo si se REEMPLAZA).
+    banco_apu.respaldar(ruta, "reemplazo" if reemplazar else "aporte")
     existentes: list[dict] = []
     if not reemplazar and ruta.exists():
         try:

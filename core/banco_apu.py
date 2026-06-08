@@ -18,6 +18,33 @@ _RUTA_SEED = settings.DATA_DIR / "banco_apu.json"
 _RUTA = settings.PERSIST_DIR / "banco_apu.json"
 
 
+def respaldar(ruta=None, etiqueta: str = "") -> None:
+    """Guarda una copia de seguridad del banco ANTES de reescribirlo.
+
+    Crea  banco_apu.<fecha>-<etiqueta>.bak.json  junto al banco y conserva
+    solo los 10 respaldos mas recientes. Asi ninguna reescritura (auto-saneo,
+    reemplazo de banco, aprobacion de aportes) puede destruir datos sin red."""
+    from datetime import datetime
+    ruta = ruta or _RUTA
+    try:
+        if not ruta.exists() or ruta.stat().st_size == 0:
+            return
+        sello = datetime.now().strftime("%Y%m%d-%H%M%S")
+        suf = f"-{etiqueta}" if etiqueta else ""
+        destino = ruta.with_name(f"{ruta.stem}.{sello}{suf}.bak.json")
+        if not destino.exists():
+            destino.write_text(ruta.read_text(encoding="utf-8"),
+                               encoding="utf-8")
+        respaldos = sorted(ruta.parent.glob(f"{ruta.stem}.*.bak.json"))
+        for viejo in respaldos[:-10]:
+            try:
+                viejo.unlink()
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
 def ruta_persistente():
     """Ruta del banco en el disco persistente; la siembra desde el repo la
     primera vez (para no perder los APU iniciales)."""
@@ -28,6 +55,33 @@ def ruta_persistente():
     except Exception:
         pass
     return _RUTA
+
+
+def listar_respaldos() -> list:
+    """Respaldos disponibles del banco, del mas reciente al mas antiguo."""
+    try:
+        return sorted(_RUTA.parent.glob(f"{_RUTA.stem}.*.bak.json"),
+                      reverse=True)
+    except Exception:
+        return []
+
+
+def contar_apus_archivo(ruta) -> int:
+    """Cuantos APU tiene un archivo de banco (para mostrar en la UI)."""
+    import json
+    try:
+        return len(json.loads(ruta.read_text(encoding="utf-8")).get("apus", []))
+    except Exception:
+        return 0
+
+
+def restaurar(ruta_bak) -> int:
+    """Restaura el banco desde un respaldo. Antes guarda copia del actual.
+    Devuelve cuantos APU quedaron tras restaurar."""
+    respaldar(_RUTA, "previo-restaurar")
+    _RUTA.write_text(ruta_bak.read_text(encoding="utf-8"), encoding="utf-8")
+    _cargar.cache_clear()
+    return len(listar_apus())
 
 
 @lru_cache(maxsize=1)
@@ -65,6 +119,7 @@ def _normalizar_mano_obra(banco: dict, ruta) -> None:
                 cambios += 1
     if cambios:
         try:
+            respaldar(ruta, "saneo")
             ruta.write_text(json.dumps(banco, ensure_ascii=False, indent=2),
                             encoding="utf-8")
         except Exception:
