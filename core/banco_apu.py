@@ -36,10 +36,39 @@ def _cargar() -> dict:
     for ruta in (ruta_persistente(), _RUTA_SEED):
         try:
             if ruta.exists():
-                return json.loads(ruta.read_text(encoding="utf-8"))
+                banco = json.loads(ruta.read_text(encoding="utf-8"))
+                _normalizar_mano_obra(banco, ruta)
+                return banco
         except Exception:
             continue
     return {"apus": []}
+
+
+def _normalizar_mano_obra(banco: dict, ruta) -> None:
+    """Aplica las reglas de mano de obra al banco completo al cargarlo:
+    sin 'peón', siempre en horas (HR) y costo horario dentro de 20-50 Bs.
+
+    Si corrige algo, reescribe el archivo (auto-saneo de bancos importados,
+    p.ej. los 4000 APU traídos del servidor)."""
+    import json
+    from core import mano_obra
+    cambios = 0
+    for apu in banco.get("apus", []):
+        for r in apu.get("mano_obra", []) or []:
+            if not isinstance(r, dict):
+                continue
+            desc = mano_obra.limpiar_descripcion(r.get("descripcion", ""))
+            precio = mano_obra.precio_valido(desc, r.get("precio", 0))
+            if (desc != r.get("descripcion") or precio != r.get("precio")
+                    or r.get("unidad") != "HR"):
+                r["descripcion"], r["precio"], r["unidad"] = desc, precio, "HR"
+                cambios += 1
+    if cambios:
+        try:
+            ruta.write_text(json.dumps(banco, ensure_ascii=False, indent=2),
+                            encoding="utf-8")
+        except Exception:
+            pass
 
 
 def hay_banco() -> bool:
