@@ -132,6 +132,35 @@ Devuelve SOLO un JSON valido con la misma forma de los ejemplos (sin texto extra
 """
 
 
+# Esquema JSON del APU que la IA debe devolver. Pasado como "structured output"
+# (Ollama) o "json_schema" (OpenAI), el modelo NO puede salirse de la forma: cada
+# recurso lleva tipo valido, unidad y cantidad numerica. Sube mucho la fiabilidad
+# de modelos como qwen3-coder:30b (evita JSON roto o campos inventados).
+_ESQUEMA_APU = {
+    "type": "object",
+    "properties": {
+        "alcance": {"type": "string"},
+        "normas": {"type": "array", "items": {"type": "string"}},
+        "medicion": {"type": "string"},
+        "recursos": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "tipo": {"type": "string",
+                             "enum": ["material", "mano_obra", "equipo"]},
+                    "descripcion": {"type": "string"},
+                    "unidad": {"type": "string"},
+                    "cantidad": {"type": "number"},
+                },
+                "required": ["tipo", "descripcion", "unidad", "cantidad"],
+            },
+        },
+    },
+    "required": ["recursos"],
+}
+
+
 def extraer_estructurado(item_descripcion: str, spec: str, item_id: int = 0,
                          unidad: str = "") -> Optional[InfoTecnica]:
     """Extracción estructurada de partidas (rol 1).
@@ -143,18 +172,20 @@ def extraer_estructurado(item_descripcion: str, spec: str, item_id: int = 0,
                                        spec=spec[:8000])
 
     contenido = None
-    # 1) Ollama local (gratis, sin tokens)
+    # 1) Ollama local (gratis, sin tokens) — con esquema estructurado
     if settings.USAR_OLLAMA and ollama_disponible():
-        contenido = _ollama_json(prompt, modelo=settings.OLLAMA_MODEL)
+        contenido = _ollama_json(prompt, modelo=settings.OLLAMA_MODEL,
+                                 esquema=_ESQUEMA_APU)
     # 2) Groq (online, gratis y rápido)
     if not contenido and settings.GROQ_API_KEY:
         contenido = _groq_json(prompt, modelo=settings.GROQ_MODEL)
     # 3) Gemini (nivel gratuito)
     if not contenido and settings.GEMINI_API_KEY:
         contenido = _gemini_json(prompt, modelo=settings.GEMINI_MODEL)
-    # 4) GPT-4o (de pago) como alternativa
+    # 4) GPT-4o (de pago) como alternativa — con esquema estructurado
     if not contenido and settings.OPENAI_API_KEY:
-        contenido = _openai_json(prompt, modelo=settings.OPENAI_MODEL)
+        contenido = _openai_json(prompt, modelo=settings.OPENAI_MODEL,
+                                 esquema=_ESQUEMA_APU)
 
     if not contenido:
         return None
@@ -269,8 +300,13 @@ def extraer_info_inteligente(item_descripcion: str, spec: str, item_id: int = 0,
 # --------------------------------------------------------------------------- #
 # Clientes LLM (perezosos, con manejo de errores)
 # --------------------------------------------------------------------------- #
-def _ollama_json(prompt: str, modelo: str) -> Optional[str]:
-    """Llama a un modelo LOCAL vía Ollama (gratis, sin tokens). Pide JSON."""
+def _ollama_json(prompt: str, modelo: str, esquema: dict | None = None
+                 ) -> Optional[str]:
+    """Llama a un modelo LOCAL vía Ollama (gratis, sin tokens). Pide JSON.
+
+    Si se pasa `esquema`, usa la salida estructurada de Ollama (el modelo se
+    obliga a respetar ese JSON Schema); si no, JSON libre.
+    """
     try:
         import requests
     except ImportError:
@@ -279,7 +315,8 @@ def _ollama_json(prompt: str, modelo: str) -> Optional[str]:
         resp = requests.post(
             f"{settings.OLLAMA_HOST}/api/generate",
             json={"model": modelo, "prompt": prompt, "stream": False,
-                  "format": "json", "options": {"temperature": 0.1}},
+                  "format": esquema if esquema else "json",
+                  "options": {"temperature": 0.1}},
             timeout=settings.OLLAMA_TIMEOUT)
         resp.raise_for_status()
         return resp.json().get("response", "")
@@ -479,18 +516,24 @@ def diagnosticar_gemini() -> dict:
     return out
 
 
-def _openai_json(prompt: str, modelo: str) -> Optional[str]:
+def _openai_json(prompt: str, modelo: str, esquema: dict | None = None
+                 ) -> Optional[str]:
     try:
         from openai import OpenAI
     except ImportError:
         logger.warning("openai no instalado; omitiendo GPT-4o")
         return None
+    if esquema:
+        formato = {"type": "json_schema",
+                   "json_schema": {"name": "apu", "schema": esquema}}
+    else:
+        formato = {"type": "json_object"}
     try:
         client = OpenAI(api_key=settings.OPENAI_API_KEY)
         resp = client.chat.completions.create(
             model=modelo,
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
+            response_format=formato,
             temperature=0.1)
         return resp.choices[0].message.content
     except Exception:
