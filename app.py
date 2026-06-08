@@ -14,9 +14,9 @@ import streamlit as st
 from config import settings
 from config.logging_config import setup_logging
 from core.database import init_db
-from ui import (apu_page, aportar_page, auth_page, banco_page, dashboard,
-                documents_page, export_page, items_page, linking_page,
-                provider_portal, quotations_page, suppliers_page)
+from ui import (apu_page, aportar_page, asistente_page, auth_page, banco_page,
+                dashboard, documents_page, export_page, items_page,
+                linking_page, provider_portal, quotations_page, suppliers_page)
 from ui.components import selector_proyecto
 
 
@@ -35,6 +35,7 @@ PAGINAS_CONTRATISTA = {
     " Documentos técnicos": documents_page.render,
     " Vinculación técnica": linking_page.render,
     " APUs": apu_page.render,
+    " Asistente IA": asistente_page.render,
     " Cotizaciones": quotations_page.render,
     " Banco de APU": banco_page.render,
     " Proveedores": suppliers_page.render,
