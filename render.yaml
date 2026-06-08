@@ -58,6 +58,9 @@ services:
       - key: VERIFIK_TOKEN
         sync: false
       # IA por API (configura una en el panel para extraer recursos con IA):
+      # Groq: IA en linea gratis y rapida (recomendada). Clave en console.groq.com
+      - key: GROQ_API_KEY
+        sync: false
       - key: OPENAI_API_KEY
         sync: false
       - key: GEMINI_API_KEY
