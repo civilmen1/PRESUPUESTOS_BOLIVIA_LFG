@@ -41,13 +41,22 @@ _MATERIALES = {
     "agua": ["agua"], "aditivo": ["aditivo", "acelerante", "plastificante"],
 }
 _MANO_OBRA = {
-    "albañil": ["albañil", "albanil", "maestro albañil"],
-    "ayudante": ["ayudante", "peon", "peón"],
-    "maestro": ["maestro mayor", "maestro de obra"],
+    "albañil": ["albañil", "albanil"],
+    # "peon"/"peón" se reconocen en textos de entrada y se mapean a ayudante;
+    # nunca se almacenan: en los datos el término se reemplaza por "ayudante".
+    "ayudante": ["ayudante", "peon", "peón", "alarife"],
+    "ayudante_maquina": ["ayudante de maquina", "ayudante de máquina"],
+    "ayudante_topografia": ["ayudante de topografia", "ayudante de topografía"],
+    "maestro_albañil": ["maestro albañil", "maestro mayor", "maestro de obra"],
     "fierrista": ["fierrista", "armador"],
     "encofrador": ["encofrador", "carpintero de obra"],
+    "carpintero": ["carpintero", "carpintería"],
     "plomero": ["plomero", "gasfiter", "instalador sanitario"],
     "electricista": ["electricista"],
+    "cerrajero": ["cerrajero"], "vidriero": ["vidriero", "vidrierista"],
+    "esp_acabados_seco": ["acabados en seco", "drywall", "yesero", "yeso"],
+    "especialista_instalaciones": ["especialista en instalaciones",
+                                   "instalador especializado"],
     "pintor": ["pintor"], "soldador": ["soldador"],
     "operador": ["operador"],
 }

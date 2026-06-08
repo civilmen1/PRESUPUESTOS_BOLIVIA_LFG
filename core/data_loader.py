@@ -51,10 +51,18 @@ def precio_local_recurso(categoria: str, descripcion: str) -> dict | None:
             if normalizar(clave) == cat or normalizar(clave) in desc or \
                normalizar(val.get("descripcion", "")) in desc or \
                desc in normalizar(val.get("descripcion", "")):
+                descripcion = val.get("descripcion", clave)
+                precio = float(val.get("precio", 0))
+                unidad = val.get("unidad", "")
+                # Mano de obra: aplicar reglas (sin 'peón', Bs/hora, 20-50).
+                if fuente == "salarios_json":
+                    from core import mano_obra
+                    descripcion = mano_obra.limpiar_descripcion(descripcion)
+                    precio = mano_obra.precio_valido(descripcion, precio)
                 return {
-                    "precio": float(val.get("precio", 0)),
-                    "unidad": val.get("unidad", ""),
-                    "descripcion": val.get("descripcion", clave),
+                    "precio": precio,
+                    "unidad": unidad,
+                    "descripcion": descripcion,
                     "fuente": fuente,
                 }
     return None
