@@ -101,12 +101,36 @@ def render(proyecto=None):
             help="Respaldo total del banco. Para llevarlo a otra PC, reemplaza "
                  "el archivo data/banco_apu.json con este.")
 
+    _panel_cargar_json()
+
     _panel_cwicr()
 
     _panel_respaldos()
 
     st.divider()
     _panel_moderacion()
+
+
+def _panel_cargar_json():
+    """Carga el banco completo desde un archivo JSON (p.ej. el descargado del
+    servidor) sin tener que copiar archivos a mano."""
+    with st.expander("Cargar banco completo desde un archivo JSON "
+                     "(p.ej. el descargado del servidor)"):
+        st.caption("Sube el archivo banco_apu.json (el que descargaste con el "
+                   "boton de arriba en el servidor). Se guarda un respaldo del "
+                   "banco actual antes de reemplazarlo.")
+        archivo = st.file_uploader("Archivo banco_apu.json", type=["json"],
+                                   key="banco_json_file")
+        fusionar = st.checkbox("Fusionar con el banco actual (en vez de "
+                               "reemplazar)", value=False)
+        if archivo and st.button("Cargar este banco", type="primary"):
+            try:
+                texto = archivo.getvalue().decode("utf-8")
+                total = banco_apu.cargar_desde_json(texto, fusionar=fusionar)
+                st.success(f"Banco cargado: ahora tiene {total} APU.")
+                st.rerun()
+            except Exception as exc:
+                st.error(f"No se pudo cargar: {exc}")
 
 
 def _panel_cwicr():
