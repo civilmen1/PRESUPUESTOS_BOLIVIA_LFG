@@ -6,7 +6,9 @@ REM ===========================================================================
 cd /d "%~dp0"
 
 REM Modelo de Ollama (debe coincidir con OLLAMA_MODEL de tu .env).
-set "MODELO=qwen2.5:7b"
+REM  qwen3-coder:30b  -> potente (PC con >=24 GB RAM o GPU >=18 GB)
+REM  qwen2.5:7b / qwen2.5:3b  -> alternativas mas livianas
+set "MODELO=qwen3-coder:30b"
 
 echo.
 echo [1/4] Verificando Ollama...
