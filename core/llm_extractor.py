@@ -40,6 +40,7 @@ def proveedores_disponibles() -> dict:
     """
     return {
         "ollama (local gratis)": settings.USAR_OLLAMA and ollama_disponible(),
+        "groq (online gratis)": bool(settings.GROQ_API_KEY),
         "openai": bool(settings.OPENAI_API_KEY),
         "anthropic": bool(settings.ANTHROPIC_API_KEY),
         "gemini": bool(settings.GEMINI_API_KEY),
@@ -145,10 +146,13 @@ def extraer_estructurado(item_descripcion: str, spec: str, item_id: int = 0,
     # 1) Ollama local (gratis, sin tokens)
     if settings.USAR_OLLAMA and ollama_disponible():
         contenido = _ollama_json(prompt, modelo=settings.OLLAMA_MODEL)
-    # 2) Gemini (nivel gratuito) — ideal para la nube
+    # 2) Groq (online, gratis y rápido)
+    if not contenido and settings.GROQ_API_KEY:
+        contenido = _groq_json(prompt, modelo=settings.GROQ_MODEL)
+    # 3) Gemini (nivel gratuito)
     if not contenido and settings.GEMINI_API_KEY:
         contenido = _gemini_json(prompt, modelo=settings.GEMINI_MODEL)
-    # 3) GPT-4o (de pago) como alternativa
+    # 4) GPT-4o (de pago) como alternativa
     if not contenido and settings.OPENAI_API_KEY:
         contenido = _openai_json(prompt, modelo=settings.OPENAI_MODEL)
 
@@ -194,6 +198,8 @@ def interpretar_normativa(item_descripcion: str, spec: str) -> Optional[dict]:
         contenido = _anthropic_json(prompt, modelo=settings.ANTHROPIC_MODEL)
     if not contenido and settings.USAR_OLLAMA and ollama_disponible():
         contenido = _ollama_json(prompt, modelo=settings.OLLAMA_MODEL)
+    if not contenido and settings.GROQ_API_KEY:
+        contenido = _groq_json(prompt, modelo=settings.GROQ_MODEL)
     if not contenido:
         return None
     try:
@@ -282,6 +288,29 @@ def _ollama_json(prompt: str, modelo: str) -> Optional[str]:
         return None
 
 
+def _groq_json(prompt: str, modelo: str) -> Optional[str]:
+    """Llama a un modelo EN LINEA vía Groq (gratis, compatible con OpenAI)."""
+    try:
+        import requests
+    except ImportError:
+        return None
+    try:
+        resp = requests.post(
+            f"{settings.GROQ_BASE_URL}/chat/completions",
+            headers={"Authorization": f"Bearer {settings.GROQ_API_KEY}",
+                     "Content-Type": "application/json"},
+            json={"model": modelo,
+                  "messages": [{"role": "user", "content": prompt}],
+                  "response_format": {"type": "json_object"},
+                  "temperature": 0.1},
+            timeout=60)
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
+    except Exception:
+        logger.exception("Error llamando a Groq (%s)", settings.GROQ_MODEL)
+        return None
+
+
 def _gemini_json(prompt: str, modelo: str) -> Optional[str]:
     """Llama a Gemini por su API REST (sin SDK) pidiendo respuesta en JSON.
 
@@ -351,12 +380,22 @@ def diagnosticar_ia() -> dict:
                 "mensaje": (f"Ollama esta activo pero el modelo "
                             f"'{settings.OLLAMA_MODEL}' no respondio. Descargalo "
                             f"con: ollama pull {settings.OLLAMA_MODEL}")}
-    # 2) Gemini (nube)
+    # 2) Groq (online, gratis)
+    if settings.GROQ_API_KEY:
+        r = _groq_json('Devuelve SOLO este JSON: {"ok":true}', settings.GROQ_MODEL)
+        return {"ok": bool(r), "proveedor": "groq", "modelos": [],
+                "mensaje": (f"Groq responde correctamente con el modelo "
+                            f"'{settings.GROQ_MODEL}'. IA en línea, gratis y rápida."
+                            if r else
+                            "Groq no respondió. Revisa que GROQ_API_KEY sea válida "
+                            "(https://console.groq.com/keys) y que el modelo "
+                            f"'{settings.GROQ_MODEL}' exista.")}
+    # 3) Gemini (nube)
     if settings.GEMINI_API_KEY:
         d = diagnosticar_gemini()
         d["proveedor"] = "gemini"
         return d
-    # 3) OpenAI (nube)
+    # 4) OpenAI (nube)
     if settings.OPENAI_API_KEY:
         r = _openai_json('Devuelve SOLO este JSON: {"ok":true}',
                          settings.OPENAI_MODEL)

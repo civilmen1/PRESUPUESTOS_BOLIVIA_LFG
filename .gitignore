@@ -10,6 +10,7 @@ env/
 .env.*
 !.env.example
 !.env.ollama.example
+!.env.groq.example
 *.db
 *.sqlite3
 data/*.db

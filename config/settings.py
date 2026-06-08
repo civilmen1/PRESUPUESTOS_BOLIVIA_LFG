@@ -154,6 +154,11 @@ OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 # Modelo liviano por defecto, apto para PCs con 8 GB de RAM.
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
 USAR_OLLAMA = os.getenv("USAR_OLLAMA", "false").lower() in {"1", "true", "yes"}
+# IA EN LINEA GRATIS (Groq): modelos en la nube, rapidos y sin costo. Compatible
+# con la API de OpenAI. Consigue tu clave gratis en https://console.groq.com/keys
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 # Activa el uso de LLM en la extracción (requiere al menos una API key).
 USAR_LLM = os.getenv("USAR_LLM", "false").lower() in {"1", "true", "yes"}
 
