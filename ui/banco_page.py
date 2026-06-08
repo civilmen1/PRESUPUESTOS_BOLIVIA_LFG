@@ -98,10 +98,48 @@ def render(proyecto=None):
             help="Respaldo total del banco. Para llevarlo a otra PC, reemplaza "
                  "el archivo data/banco_apu.json con este.")
 
+    _panel_cwicr()
+
     _panel_respaldos()
 
     st.divider()
     _panel_moderacion()
+
+
+def _panel_cwicr():
+    """Importa rendimientos del catalogo CWICR (CC BY 4.0) SIN sus precios."""
+    with st.expander("Importar rendimientos CWICR (catalogo internacional, sin precios)"):
+        st.caption("Toma de un archivo CWICR (CSV/Excel) los RENDIMIENTOS "
+                   "(cantidades y horas por unidad) y los agrega al banco como "
+                   "referencia. Los precios del CWICR estan en EUR y se DESCARTAN "
+                   "(entran en 0): debes repreciarlos con tus tarifas bolivianas. "
+                   "Fuente: DataDrivenConstruction CWICR (CC BY 4.0).")
+        archivo = st.file_uploader("Archivo CWICR (.csv, .xlsx)",
+                                   type=["csv", "xlsx"], key="cwicr_file")
+        contiene = st.text_input(
+            "Filtrar solo partidas que contengan (separa por comas; vacio = todas)",
+            placeholder="hormigon, acero, pintura, excavacion")
+        if archivo and st.button("Importar rendimientos CWICR", type="primary"):
+            from scripts.importar_cwicr import importar_cwicr
+            from scripts.importar_apu_banco import guardar_banco
+            from core.text_cleaner import nombre_archivo_seguro
+            ruta = settings.UPLOAD_DIR / nombre_archivo_seguro(archivo.name)
+            ruta.write_bytes(archivo.getbuffer())
+            palabras = [p for p in contiene.split(",") if p.strip()]
+            try:
+                with st.spinner("Leyendo CWICR (rendimientos, sin precios)..."):
+                    apus = importar_cwicr(str(ruta), contiene=palabras)
+                if not apus:
+                    st.warning("No se obtuvieron partidas (revisa el filtro o el "
+                               "formato del archivo).")
+                    return
+                guardar_banco(apus, proyecto="CWICR", reemplazar=False)
+                banco_apu._cargar.cache_clear()
+                st.success(f"{len(apus)} partidas CWICR agregadas (precios en 0). "
+                           "Reprecia los insumos con tus tarifas bolivianas.")
+                st.rerun()
+            except Exception as exc:
+                st.error(f"No se pudo importar: {exc}")
 
 
 def _panel_respaldos():
