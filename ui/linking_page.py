@@ -87,12 +87,22 @@ def render(proyecto):
                    "documentos). Útil para descartar resultados genéricos viejos "
                    "y regenerar todo con la versión actual (IA).")
         confirmar = st.checkbox("Confirmo que deseo purgar este proyecto")
-        if st.button("Purgar APU del proyecto", disabled=not confirmar):
+        c_p1, c_p2 = st.columns(2)
+        if c_p1.button("Purgar y regenerar (recomendado)", type="primary",
+                       disabled=not confirmar):
             resumen = repositories.purgar_apu_proyecto(proyecto.id)
             st.success(f"Purgado: {resumen['recursos']} recursos y "
                        f"{resumen['resultados']} resultados de "
-                       f"{resumen['items']} ítems. Ahora ejecuta la vinculación "
-                       "inteligente para regenerar con IA.")
+                       f"{resumen['items']} ítems. Regenerando todo desde cero...")
+            # Arranca la vinculacion/armado resumible automaticamente.
+            st.session_state["vinc_activa"] = True
+            st.session_state["vinc_intentados"] = []
+            st.rerun()
+        if c_p2.button("Solo purgar", disabled=not confirmar):
+            resumen = repositories.purgar_apu_proyecto(proyecto.id)
+            st.success(f"Purgado: {resumen['recursos']} recursos y "
+                       f"{resumen['resultados']} resultados de "
+                       f"{resumen['items']} ítems.")
             st.rerun()
 
     col1, col2 = st.columns([1, 1])
