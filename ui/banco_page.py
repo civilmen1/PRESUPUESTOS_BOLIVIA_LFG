@@ -30,6 +30,14 @@ def render(proyecto=None):
         type=["xlsx", "bc3"], accept_multiple_files=True)
     reemplazar = st.checkbox("Reemplazar el banco (en vez de agregar)",
                              value=False)
+    if reemplazar:
+        st.warning(f"PELIGRO: vas a BORRAR los {n} APU actuales y dejar solo "
+                   "los del archivo que subas. Se guarda un respaldo "
+                   "automatico, pero asegurate de que es lo que quieres. "
+                   "Si solo quieres sumar precios, DESMARCA esta casilla.")
+        confirmar = st.checkbox(f"Si, entiendo que se borraran los {n} APU "
+                                "actuales y quiero reemplazarlos.", value=False)
+        reemplazar = reemplazar and confirmar
 
     if archivos and st.button("Cargar al banco", type="primary"):
         from scripts.importar_apu_banco import importar, guardar_banco
@@ -90,8 +98,34 @@ def render(proyecto=None):
             help="Respaldo total del banco. Para llevarlo a otra PC, reemplaza "
                  "el archivo data/banco_apu.json con este.")
 
+    _panel_respaldos()
+
     st.divider()
     _panel_moderacion()
+
+
+def _panel_respaldos():
+    """Lista de respaldos automaticos del banco, con descarga y restauracion."""
+    respaldos = banco_apu.listar_respaldos()
+    with st.expander(f"Respaldos automaticos del banco ({len(respaldos)})"):
+        st.caption("Cada vez que el banco se reescribe (saneo, reemplazo o "
+                   "aprobacion de aportes) se guarda una copia. Si algo borro "
+                   "datos por error, restaura aqui la version con mas APU.")
+        if not respaldos:
+            st.info("Aun no hay respaldos. Se crearan automaticamente con el "
+                    "proximo cambio del banco.")
+            return
+        for bak in respaldos:
+            n_bak = banco_apu.contar_apus_archivo(bak)
+            c1, c2, c3 = st.columns([3, 1, 1])
+            c1.write(f"`{bak.name}` - **{n_bak}** APU")
+            c2.download_button("Descargar", bak.read_text(encoding="utf-8"),
+                               file_name=bak.name, mime="application/json",
+                               key=f"dl_{bak.name}")
+            if c3.button("Restaurar", key=f"rs_{bak.name}"):
+                total = banco_apu.restaurar(bak)
+                st.success(f"Banco restaurado: ahora tiene {total} APU.")
+                st.rerun()
 
     st.divider()
     _panel_trafico()
