@@ -87,6 +87,37 @@ def restaurar(ruta_bak) -> int:
     return len(listar_apus())
 
 
+def cargar_desde_json(texto: str, fusionar: bool = False) -> int:
+    """Carga un banco completo desde el TEXTO de un archivo JSON (p.ej. el que
+    se descargo del servidor). Valida, respalda el actual y lo reemplaza (o
+    fusiona). Devuelve cuantos APU quedaron. Lanza ValueError si el JSON es
+    invalido o no tiene la forma esperada."""
+    import json
+    datos = json.loads(texto)
+    if not isinstance(datos, dict) or "apus" not in datos \
+            or not isinstance(datos["apus"], list):
+        raise ValueError("El archivo no es un banco valido (falta la lista 'apus').")
+    ruta = ruta_persistente()
+    respaldar(ruta, "previo-carga-json")
+    if fusionar and ruta.exists():
+        from core.text_cleaner import normalizar
+        try:
+            actuales = json.loads(ruta.read_text(encoding="utf-8")).get("apus", [])
+        except Exception:
+            actuales = []
+        vistos = {normalizar(a.get("actividad", "")) for a in actuales}
+        for a in datos["apus"]:
+            k = normalizar(a.get("actividad", ""))
+            if k and k not in vistos:
+                actuales.append(a)
+                vistos.add(k)
+        datos["apus"] = actuales
+    ruta.write_text(json.dumps(datos, ensure_ascii=False, indent=2),
+                    encoding="utf-8")
+    _cargar.cache_clear()
+    return len(listar_apus())
+
+
 @lru_cache(maxsize=1)
 def _cargar() -> dict:
     import json
