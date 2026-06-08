@@ -1,14 +1,14 @@
 {
-  "_descripcion": "Salarios referenciales de mano de obra en Bolivia (BOB por jornal de 8h). Valores referenciales editables.",
+  "_descripcion": "Salarios referenciales de mano de obra en Bolivia (BOB por HORA). En los APU la mano de obra se maneja siempre en horas. Valores referenciales editables (aprox. jornal de 8h dividido entre 8).",
   "_moneda": "BOB",
-  "_unidad": "jornal",
-  "maestro_mayor": {"descripcion": "Maestro mayor / albañil especializado", "precio": 180.0, "unidad": "jornal"},
-  "albañil": {"descripcion": "Albañil", "precio": 150.0, "unidad": "jornal"},
-  "ayudante": {"descripcion": "Ayudante / peón", "precio": 110.0, "unidad": "jornal"},
-  "fierrista": {"descripcion": "Armador / fierrista", "precio": 160.0, "unidad": "jornal"},
-  "encofrador": {"descripcion": "Carpintero encofrador", "precio": 160.0, "unidad": "jornal"},
-  "plomero": {"descripcion": "Plomero / gasfitero", "precio": 165.0, "unidad": "jornal"},
-  "electricista": {"descripcion": "Electricista", "precio": 170.0, "unidad": "jornal"},
-  "pintor": {"descripcion": "Pintor", "precio": 150.0, "unidad": "jornal"},
-  "operador_equipo": {"descripcion": "Operador de equipo pesado", "precio": 200.0, "unidad": "jornal"}
+  "_unidad": "hora",
+  "maestro_mayor": {"descripcion": "Maestro mayor / albañil especializado", "precio": 22.5, "unidad": "hora"},
+  "albañil": {"descripcion": "Albañil", "precio": 18.75, "unidad": "hora"},
+  "ayudante": {"descripcion": "Ayudante / peón", "precio": 13.75, "unidad": "hora"},
+  "fierrista": {"descripcion": "Armador / fierrista", "precio": 20.0, "unidad": "hora"},
+  "encofrador": {"descripcion": "Carpintero encofrador", "precio": 20.0, "unidad": "hora"},
+  "plomero": {"descripcion": "Plomero / gasfitero", "precio": 20.63, "unidad": "hora"},
+  "electricista": {"descripcion": "Electricista", "precio": 21.25, "unidad": "hora"},
+  "pintor": {"descripcion": "Pintor", "precio": 18.75, "unidad": "hora"},
+  "operador_equipo": {"descripcion": "Operador de equipo pesado", "precio": 25.0, "unidad": "hora"}
 }

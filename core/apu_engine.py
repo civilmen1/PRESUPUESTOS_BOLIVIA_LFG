@@ -140,17 +140,18 @@ def _garantizar_minimos(item: Item, recursos: List[RecursoAPU],
         recursos.append(nuevo)
 
     # --- MANO DE OBRA mínima (toda actividad requiere personal) ---
+    # La mano de obra SIEMPRE se expresa en HORAS (no jornal).
     if TIPO_MANO_OBRA not in presentes:
         if any(k in contexto for k in ("electric", "cable", "luminaria")):
-            _add(TIPO_MANO_OBRA, "Electricista", "jornal", 0.1, "electricista",
+            _add(TIPO_MANO_OBRA, "Electricista", "hora", 0.8, "electricista",
                  "Personal mínimo inferido del contexto")
         elif any(k in contexto for k in ("tuberia", "sanitaria", "agua", "gas")):
-            _add(TIPO_MANO_OBRA, "Plomero", "jornal", 0.1, "plomero",
+            _add(TIPO_MANO_OBRA, "Plomero", "hora", 0.8, "plomero",
                  "Personal mínimo inferido del contexto")
         else:
-            _add(TIPO_MANO_OBRA, "Albañil", "jornal", 0.2, "albañil",
+            _add(TIPO_MANO_OBRA, "Albañil", "hora", 1.6, "albañil",
                  "Personal mínimo inferido del contexto")
-        _add(TIPO_MANO_OBRA, "Ayudante", "jornal", 0.2, "ayudante",
+        _add(TIPO_MANO_OBRA, "Ayudante", "hora", 1.6, "ayudante",
              "Personal mínimo inferido del contexto")
 
     # --- EQUIPO / HERRAMIENTA mínima ---

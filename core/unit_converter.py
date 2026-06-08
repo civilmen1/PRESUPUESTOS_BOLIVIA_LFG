@@ -18,7 +18,7 @@ _ALIAS = {
     "pieza": ["pieza", "piezas", "pza", "unidad", "und", "u", "c/u", "cu"],
     "lt": ["lt", "l", "litro", "litros"],
     "gal": ["gal", "galon", "galones"],
-    "hora": ["hora", "horas", "hr", "h", "hm"],
+    "hora": ["hora", "horas", "hr", "hrs", "hra", "hras", "h", "hm"],
     "jornal": ["jornal", "jornales", "dia", "día", "dias"],
     "glb": ["glb", "global", "gbl"],
     "p2": ["p2", "pie2", "pie cuadrado", "pies cuadrados"],
@@ -31,12 +31,15 @@ _CONVERSIONES = {
     ("kg", "ton"): 0.001,
     ("gal", "lt"): 3.785,
     ("lt", "gal"): 1 / 3.785,
+    # 1 jornal laboral = 8 horas (mano de obra y equipo se manejan en horas).
+    ("jornal", "hora"): 8.0,
+    ("hora", "jornal"): 1 / 8.0,
 }
 
 
 def canonica(unidad: str) -> str:
     """Devuelve la unidad canónica de un texto de unidad."""
-    n = normalizar(unidad).strip()
+    n = normalizar(unidad).strip().strip(".").strip()
     for canon, alias in _ALIAS.items():
         if n in alias or n == canon:
             return canon
