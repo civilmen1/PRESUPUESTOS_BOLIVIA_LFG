@@ -62,55 +62,61 @@ def contar_pendientes() -> int:
     return len(listar("pendiente"))
 
 
-def aprobar(aporte_id: int) -> int:
-    """Aprueba un aporte: agrega sus APUs al banco (sin reemplazar) y lo marca
-    'aprobado'. Devuelve cuantos APUs se incorporaron."""
+def aprobar(aporte_id: int) -> dict:
+    """Aprueba un aporte: incorpora sus APUs al banco (actualizando los que ya
+    existan) y lo marca 'aprobado'. Devuelve {agregados, actualizados, omitidos}."""
     from scripts.importar_apu_banco import guardar_banco
     from core import banco_apu
 
     datos = _leer()
-    n = 0
+    res = {"agregados": 0, "actualizados": 0, "omitidos": 0}
+    hubo = False
     for a in datos.get("aportes", []):
         if a.get("id") == aporte_id and a.get("estado") == "pendiente":
-            apus = a.get("apus", [])
-            guardar_banco(apus, proyecto=f"aporte:{a.get('nombre','')}",
-                          reemplazar=False)
+            r = guardar_banco(a.get("apus", []),
+                              proyecto=f"aporte:{a.get('nombre','')}",
+                              reemplazar=False, actualizar_duplicados=True)
+            for k in res:
+                res[k] += r.get(k, 0)
             a["estado"] = "aprobado"
-            n = len(apus)
+            hubo = True
             break
     _guardar(datos)
-    if n:
+    if hubo:
         banco_apu._cargar.cache_clear()
         try:
             banco_apu.guardar_markdown()
         except Exception:
             pass
-    return n
+    return res
 
 
-def aprobar_todos() -> int:
-    """Aprueba TODOS los aportes pendientes de una vez. Devuelve cuantos APUs
-    se incorporaron al banco en total."""
+def aprobar_todos() -> dict:
+    """Aprueba TODOS los aportes pendientes. Devuelve {agregados, actualizados,
+    omitidos} sumados."""
     from scripts.importar_apu_banco import guardar_banco
     from core import banco_apu
 
     datos = _leer()
-    total = 0
+    res = {"agregados": 0, "actualizados": 0, "omitidos": 0}
+    hubo = False
     for a in datos.get("aportes", []):
         if a.get("estado") == "pendiente":
-            apus = a.get("apus", [])
-            guardar_banco(apus, proyecto=f"aporte:{a.get('nombre','')}",
-                          reemplazar=False)
+            r = guardar_banco(a.get("apus", []),
+                              proyecto=f"aporte:{a.get('nombre','')}",
+                              reemplazar=False, actualizar_duplicados=True)
+            for k in res:
+                res[k] += r.get(k, 0)
             a["estado"] = "aprobado"
-            total += len(apus)
+            hubo = True
     _guardar(datos)
-    if total:
+    if hubo:
         banco_apu._cargar.cache_clear()
         try:
             banco_apu.guardar_markdown()
         except Exception:
             pass
-    return total
+    return res
 
 
 def rechazar(aporte_id: int) -> bool:

@@ -36,12 +36,27 @@ def test_aporte_queda_pendiente_no_entra_al_banco(tmp_path, monkeypatch):
 def test_aprobar_incorpora_al_banco(tmp_path, monkeypatch):
     moderacion, banco_apu = _aislar(tmp_path, monkeypatch)
     aid = moderacion.agregar_pendiente("Ana", "a@x.bo", "B-2.xlsx", [_apu()])
-    n = moderacion.aprobar(aid)
-    assert n == 1
+    r = moderacion.aprobar(aid)
+    assert r["agregados"] == 1
     banco_apu._cargar.cache_clear()
     assert len(banco_apu.listar_apus()) == 1
     assert moderacion.contar_pendientes() == 0
     assert moderacion.listar("aprobado")[0]["id"] == aid
+
+
+def test_aprobar_duplicado_actualiza_no_suma(tmp_path, monkeypatch):
+    """Aprobar una actividad que YA existe la actualiza (no aumenta el total)."""
+    moderacion, banco_apu = _aislar(tmp_path, monkeypatch)
+    a1 = moderacion.agregar_pendiente("Ana", "a@x.bo", "B-2.xlsx", [_apu()])
+    moderacion.aprobar(a1)
+    banco_apu._cargar.cache_clear()
+    assert len(banco_apu.listar_apus()) == 1
+    # Mismo nombre de actividad: debe actualizar, no agregar.
+    a2 = moderacion.agregar_pendiente("Bob", "b@x.bo", "B-2.xlsx", [_apu()])
+    r = moderacion.aprobar(a2)
+    banco_apu._cargar.cache_clear()
+    assert r["agregados"] == 0 and r["actualizados"] == 1
+    assert len(banco_apu.listar_apus()) == 1
 
 
 def test_rechazar_no_incorpora(tmp_path, monkeypatch):
@@ -55,4 +70,5 @@ def test_rechazar_no_incorpora(tmp_path, monkeypatch):
 
 def test_aprobar_id_inexistente_no_falla(tmp_path, monkeypatch):
     moderacion, _ = _aislar(tmp_path, monkeypatch)
-    assert moderacion.aprobar(999) == 0
+    assert moderacion.aprobar(999) == {"agregados": 0, "actualizados": 0,
+                                       "omitidos": 0}

@@ -54,11 +54,14 @@ def render(proyecto=None):
                     apus = importador_bc3.extraer_apus(archivo.getbuffer())
                 else:
                     apus = importar(str(ruta))
-                guardar_banco(apus, proyecto=seguro,
-                              reemplazar=reemplazar and primero)
+                r = guardar_banco(apus, proyecto=seguro,
+                                  reemplazar=reemplazar and primero,
+                                  actualizar_duplicados=not reemplazar)
                 primero = False
                 total_nuevos += len(apus)
-                st.success(f"{seguro}: {len(apus)} APUs procesados.")
+                st.success(f"{seguro}: {len(apus)} APUs leidos "
+                           f"({r['agregados']} nuevos, {r['actualizados']} "
+                           f"actualizados, {r['omitidos']} ya existian).")
             except Exception as exc:
                 st.error(f"{seguro}: error al leer - {exc}")
         # refrescar cache del banco
@@ -169,6 +172,18 @@ def _panel_respaldos():
     _panel_trafico()
 
 
+def _resumen_aporte(r: dict) -> str:
+    """Mensaje honesto de lo que realmente paso al incorporar APUs al banco."""
+    msg = (f"Listo: {r.get('agregados', 0)} APU nuevos agregados, "
+           f"{r.get('actualizados', 0)} actualizados (la actividad ya existia y "
+           f"se refrescaron sus precios), {r.get('omitidos', 0)} omitidos. "
+           f"Total en el banco: {r.get('total', '?')}.")
+    if not r.get("agregados") and not r.get("actualizados"):
+        msg += (" El contador no sube porque esas actividades ya estaban en el "
+                "banco.")
+    return msg
+
+
 def _panel_moderacion():
     """Aprobacion de los aportes publicos antes de que entren al banco."""
     from core import moderacion
@@ -187,10 +202,9 @@ def _panel_moderacion():
     c1.caption(f"Hay {len(pendientes)} aportes pendientes con {n_apus} APUs en "
                "total. Revisalos abajo o incorporalos todos de una vez.")
     if c2.button("Aprobar todos", type="primary", use_container_width=True):
-        total = moderacion.aprobar_todos()
+        r = moderacion.aprobar_todos()
         banco_apu._cargar.cache_clear()
-        st.success(f"Aprobados todos los aportes: {total} APUs incorporados al "
-                   "banco.")
+        st.success(_resumen_aporte(r))
         st.rerun()
 
     for a in pendientes:
@@ -209,9 +223,9 @@ def _panel_moderacion():
             c1, c2 = st.columns(2)
             if c1.button("Aprobar e incorporar al banco", key=f"ap_{a['id']}",
                          type="primary", use_container_width=True):
-                n = moderacion.aprobar(a["id"])
+                r = moderacion.aprobar(a["id"])
                 banco_apu._cargar.cache_clear()
-                st.success(f"Aprobado: {n} APUs incorporados al banco.")
+                st.success(_resumen_aporte(r))
                 st.rerun()
             if c2.button("Rechazar", key=f"rc_{a['id']}",
                          use_container_width=True):
