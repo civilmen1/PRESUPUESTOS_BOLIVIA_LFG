@@ -23,7 +23,9 @@ _SISTEMA = (
     "precios. SIEMPRE que necesites un dato del banco, un precio o info del "
     "proyecto, usa las herramientas disponibles en lugar de inventar. Mano de "
     "obra y equipo SIEMPRE en horas; no uses el termino 'peon' (di 'ayudante'). "
-    "Responde en espanol, claro y conciso."
+    "Puedes CREAR items y ARMAR su APU en el proyecto activo cuando el usuario lo "
+    "pida; al crear o armar, confirma brevemente que lo hiciste. Nunca borras "
+    "datos. Responde en espanol, claro y conciso."
 )
 
 
@@ -75,6 +77,59 @@ def _t_listar_items(ctx: dict) -> dict:
                        "unidad": it.unidad} for it in items if not it.es_modulo]}
 
 
+def _t_crear_item(ctx: dict, descripcion: str, unidad: str = "",
+                  numero: str = "", cantidad: float = 0.0) -> dict:
+    proyecto_id = ctx.get("proyecto_id")
+    if not proyecto_id:
+        return {"ok": False, "motivo": "no hay proyecto activo"}
+    if not descripcion.strip():
+        return {"ok": False, "motivo": "falta la descripcion del item"}
+    from core import repositories
+    from models.item import Item
+    item = Item(proyecto_id=proyecto_id, numero=numero, descripcion=descripcion,
+                unidad=unidad or "glb", cantidad=float(cantidad or 1.0))
+    item_id = repositories.crear_item(item)
+    return {"ok": True, "item_id": item_id, "descripcion": descripcion,
+            "unidad": item.unidad}
+
+
+def _buscar_item(proyecto_id: int, referencia: str):
+    """Encuentra un item del proyecto por numero exacto o por texto en la
+    descripcion (el mas parecido)."""
+    from core import repositories
+    from core.text_cleaner import tokenizar
+    items = [it for it in repositories.listar_items(proyecto_id)
+             if not it.es_modulo]
+    ref = (referencia or "").strip()
+    for it in items:
+        if it.numero and it.numero.strip() == ref:
+            return it
+    q = set(tokenizar(ref))
+    mejor, mejor_score = None, 0
+    for it in items:
+        score = len(q & set(tokenizar(it.descripcion)))
+        if score > mejor_score:
+            mejor, mejor_score = it, score
+    return mejor
+
+
+def _t_armar_apu_item(ctx: dict, referencia: str) -> dict:
+    """Genera y guarda los recursos (APU) de un item existente del proyecto."""
+    proyecto_id = ctx.get("proyecto_id")
+    if not proyecto_id:
+        return {"ok": False, "motivo": "no hay proyecto activo"}
+    it = _buscar_item(proyecto_id, referencia)
+    if not it:
+        return {"ok": False, "motivo": f"no encontre el item '{referencia}'"}
+    from core import apu_engine, repositories
+    recursos = apu_engine.armar_recursos_desde_analisis(it)
+    repositories.set_validacion_tecnica(it.id, True)
+    cuenta = {"material": 0, "mano_obra": 0, "equipo": 0}
+    for r in recursos:
+        cuenta[r.tipo] = cuenta.get(r.tipo, 0) + 1
+    return {"ok": True, "item": it.descripcion, "recursos": cuenta}
+
+
 # Registro: nombre -> (funcion, descripcion, parametros JSON Schema)
 _TOOLS: dict[str, tuple[Callable, str, dict]] = {
     "estado_banco": (
@@ -104,6 +159,22 @@ _TOOLS: dict[str, tuple[Callable, str, dict]] = {
     "listar_items": (
         _t_listar_items, "Lista los items del proyecto activo.",
         {"type": "object", "properties": {}}),
+    "crear_item": (
+        _t_crear_item,
+        "Crea un nuevo item en el proyecto activo (solo agrega, no borra nada).",
+        {"type": "object", "properties": {
+            "descripcion": {"type": "string"},
+            "unidad": {"type": "string"},
+            "numero": {"type": "string"},
+            "cantidad": {"type": "number"}}, "required": ["descripcion"]}),
+    "armar_apu_item": (
+        _t_armar_apu_item,
+        "Genera y guarda los recursos (APU) de un item existente del proyecto, "
+        "identificado por su numero o un texto de su descripcion.",
+        {"type": "object", "properties": {
+            "referencia": {"type": "string",
+                           "description": "numero del item o parte de su descripcion"}},
+         "required": ["referencia"]}),
 }
 
 

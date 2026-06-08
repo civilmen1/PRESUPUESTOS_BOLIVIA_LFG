@@ -47,6 +47,21 @@ def test_chat_bucle_con_herramienta(monkeypatch):
     assert "banco" in res["respuesta"].lower()
 
 
+def test_crear_item_sin_proyecto():
+    out = json.loads(asistente._ejecutar("crear_item",
+                                         {"descripcion": "Muro de ladrillo"}, {}))
+    assert out["ok"] is False
+
+
+def test_crear_item_ok(monkeypatch):
+    from core import repositories
+    monkeypatch.setattr(repositories, "crear_item", lambda item: 42)
+    out = json.loads(asistente._ejecutar(
+        "crear_item", {"descripcion": "Muro de ladrillo", "unidad": "m2"},
+        {"proyecto_id": 7}))
+    assert out["ok"] is True and out["item_id"] == 42 and out["unidad"] == "m2"
+
+
 def test_chat_sin_proveedor(monkeypatch):
     monkeypatch.setattr(asistente, "_proveedor", lambda: None)
     res = asistente.chat([{"role": "user", "content": "hola"}])

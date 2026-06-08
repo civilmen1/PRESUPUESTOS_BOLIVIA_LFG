@@ -18,10 +18,10 @@ def render(proyecto):
         return
 
     st.caption("Pregunta en lenguaje natural. El asistente consulta tu banco, "
-               "precios y proyecto con herramientas reales. Ej.: \"busca un APU "
-               "de hormigon armado y dime su mano de obra\", \"genera el APU de "
-               "pintura latex en muros, unidad m2\", \"cuantos APU hay en el "
-               "banco\".")
+               "precios y proyecto con herramientas reales, y puede crear items "
+               "o armar su APU. Ej.: \"busca un APU de hormigon armado y dime su "
+               "mano de obra\", \"crea el item 'Pintura latex en muros' unidad m2 "
+               "y arma su APU\", \"cuantos APU hay en el banco\".")
 
     historial = st.session_state.setdefault("asist_hist", [])
 
