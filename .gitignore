@@ -1,0 +1,22 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+# Variables de entorno y secretos: ignorar todas las variantes .env*
+# (excepto la plantilla .env.example, que SI se versiona).
+.env
+.env.*
+!.env.example
+!.env.ollama.example
+!.env.groq.example
+*.db
+*.sqlite3
+data/*.db
+exports/
+uploads/
+logs/
+.pytest_cache/
+.streamlit/secrets.toml
+.DS_Store

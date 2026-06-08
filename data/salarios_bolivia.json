@@ -1,0 +1,23 @@
+{
+  "_descripcion": "Salarios referenciales de mano de obra en Bolivia, SIEMPRE en Bs por HORA. No se usa 'jornal' ni 'peón'. Costo horario acotado al rango 20-50 Bs/hora.",
+  "_moneda": "BOB",
+  "_unidad": "hora",
+  "_rango_bs_hora": [20, 50],
+  "ayudante": {"descripcion": "Ayudante", "precio": 20, "unidad": "hora"},
+  "ayudante_maquina": {"descripcion": "Ayudante de máquina", "precio": 20, "unidad": "hora"},
+  "ayudante_topografia": {"descripcion": "Ayudante de topografía", "precio": 20, "unidad": "hora"},
+  "albañil": {"descripcion": "Albañil", "precio": 25, "unidad": "hora"},
+  "maestro_albañil": {"descripcion": "Maestro albañil / albañil especializado", "precio": 30, "unidad": "hora"},
+  "fierrista": {"descripcion": "Fierrista / armador", "precio": 30, "unidad": "hora"},
+  "encofrador": {"descripcion": "Carpintero encofrador", "precio": 35, "unidad": "hora"},
+  "carpintero": {"descripcion": "Carpintero", "precio": 35, "unidad": "hora"},
+  "soldador": {"descripcion": "Soldador", "precio": 35, "unidad": "hora"},
+  "cerrajero": {"descripcion": "Cerrajero", "precio": 35, "unidad": "hora"},
+  "vidriero": {"descripcion": "Vidriero", "precio": 35, "unidad": "hora"},
+  "plomero": {"descripcion": "Plomero / gasfitero", "precio": 35, "unidad": "hora"},
+  "esp_acabados_seco": {"descripcion": "Especialista en acabados en seco (drywall)", "precio": 40, "unidad": "hora"},
+  "electricista": {"descripcion": "Electricista / instalaciones", "precio": 40, "unidad": "hora"},
+  "especialista_instalaciones": {"descripcion": "Especialista en instalaciones", "precio": 50, "unidad": "hora"},
+  "pintor": {"descripcion": "Pintor", "precio": 25, "unidad": "hora"},
+  "operador_equipo": {"descripcion": "Operador de equipo", "precio": 30, "unidad": "hora"}
+}

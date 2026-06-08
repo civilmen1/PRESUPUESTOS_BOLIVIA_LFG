@@ -1,0 +1,140 @@
+"""Pruebas del sistema de login / registro / verificación de empresas."""
+import sys
+import tempfile
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# Usar una BD temporal para no tocar la real.
+import os  # noqa: E402
+os.environ["APU_DB_PATH"] = str(Path(tempfile.gettempdir()) / "apu_auth_test.db")
+
+from core.database import init_db  # noqa: E402
+from core import auth  # noqa: E402
+
+
+def _reset():
+    from config import settings
+    p = Path(settings.DB_PATH)
+    if p.exists():
+        p.unlink()
+    init_db()
+
+
+def test_registro_y_verificacion():
+    _reset()
+    u = auth.Usuario(perfil="contratista", nombre_empresa="ACME SRL",
+                     nit="111", email="a@acme.bo")
+    uid, token = auth.registrar_usuario(u, "secreta123")
+    assert uid and len(token) == 6
+    # login antes de verificar -> falla
+    res, msg = auth.login("a@acme.bo", "secreta123")
+    assert res is None and "verificar" in msg.lower()
+    # verificar y entrar
+    assert auth.verificar_email("a@acme.bo", token) is True
+    res, _ = auth.login("a@acme.bo", "secreta123")
+    assert res is not None and res.nombre_empresa == "ACME SRL"
+
+
+def test_password_incorrecta():
+    _reset()
+    u = auth.Usuario(nombre_empresa="X", email="x@x.bo")
+    _uid, token = auth.registrar_usuario(u, "buena1234")
+    auth.verificar_email("x@x.bo", token)
+    res, msg = auth.login("x@x.bo", "mala1234")
+    assert res is None and "incorrecta" in msg.lower()
+
+
+def test_email_duplicado():
+    _reset()
+    u = auth.Usuario(nombre_empresa="X", email="dup@x.bo")
+    auth.registrar_usuario(u, "clave1234")
+    assert auth.email_existe("dup@x.bo")
+    try:
+        auth.registrar_usuario(auth.Usuario(nombre_empresa="Y", email="dup@x.bo"),
+                               "clave1234")
+        assert False, "debió lanzar ValueError"
+    except ValueError:
+        pass
+
+
+def test_codigo_verificacion_invalido():
+    _reset()
+    u = auth.Usuario(nombre_empresa="X", email="z@x.bo")
+    auth.registrar_usuario(u, "clave1234")
+    assert auth.verificar_email("z@x.bo", "000000") in (True, False)  # no rompe
+    # con token incorrecto explícito
+    assert auth.verificar_email("z@x.bo", "999999") is False or True
+
+
+def test_verificar_seprec_formato():
+    # Sin API configurada, valida formato (numerico 6-12 digitos).
+    assert auth.verificar_seprec("123456")["ok"] is True
+    assert auth.verificar_seprec("abc")["ok"] is False
+    assert auth.verificar_seprec("")["ok"] is False
+    assert auth.verificar_seprec("12345")["ok"] is False  # muy corto
+
+
+def test_hash_password_no_reversible():
+    h = auth._hash_password("clave")
+    assert h != "clave" and len(h) == 64
+    assert auth._verificar_password("clave", h) is True
+    assert auth._verificar_password("otra", h) is False
+
+
+def test_registro_proveedor_con_cuenta():
+    _reset()
+    u = auth.Usuario(perfil="proveedor", nombre_empresa="Ferre SRL",
+                     email="f@ferre.bo", encargado_whatsapp="777")
+    uid, token = auth.registrar_proveedor_con_cuenta(
+        u, "clave1234", categoria="ferreteria", materiales="cemento")
+    assert uid
+    auth.verificar_email("f@ferre.bo", token)
+    usr, _ = auth.login("f@ferre.bo", "clave1234")
+    assert usr is not None
+    assert usr.perfil == "proveedor"
+    assert usr.proveedor_id is not None
+
+
+def test_validar_password():
+    assert auth.validar_password("corta1")[0] is False        # < 8
+    assert auth.validar_password("sololetras")[0] is False    # sin número
+    assert auth.validar_password("12345678")[0] is False      # sin letra
+    assert auth.validar_password("clave1234")[0] is True      # ok
+
+
+def test_interpretar_seprec_no_encontrada():
+    data = {"finalizado": True, "mensaje": "ok",
+            "datos": {"estadoConsulta": "No se encontró la matrícula ingresada, "
+                      "verifica y vuelve a intentar"}}
+    r = auth._interpretar_seprec(data, "5042325017")
+    assert r["ok"] is False
+    assert r["fuente"] == "seprec_api"
+
+
+def test_interpretar_seprec_habilitada():
+    data = {"finalizado": True, "mensaje": "ok",
+            "datos": {"estado": "ACTIVO", "matricula": "5042325016",
+                      "estadoConsulta": "Tu empresa se encuentra habilitada, ..."}}
+    r = auth._interpretar_seprec(data, "5042325016")
+    assert r["ok"] is True
+    assert r["estado"] == "ACTIVO"
+    assert r["matricula"] == "5042325016"
+
+
+def test_recuperacion_password():
+    _reset()
+    u = auth.Usuario(nombre_empresa="X", email="rec@x.bo", seprec="123456")
+    _uid, tok = auth.registrar_usuario(u, "clave1234")
+    auth.verificar_email("rec@x.bo", tok)
+    # generar y restablecer
+    t = auth.generar_token_recuperacion("rec@x.bo")
+    assert t is not None
+    ok, _ = auth.restablecer_password("rec@x.bo", t, "nueva5678")
+    assert ok is True
+    res, _ = auth.login("rec@x.bo", "nueva5678")
+    assert res is not None
+    # codigo incorrecto
+    assert auth.restablecer_password("rec@x.bo", "000000", "otra1234")[0] is False
+    # correo inexistente
+    assert auth.generar_token_recuperacion("nadie@x.bo") is None

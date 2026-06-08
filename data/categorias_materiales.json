@@ -1,0 +1,69 @@
+{
+  "_descripcion": "Diccionario de palabras clave -> categoría/recurso para inferencia de APU (Bolivia). Editable.",
+  "cemento": {
+    "categoria": "cemento",
+    "keywords": ["cemento", "hormigon", "hormigón", "concreto", "mortero", "carpeta", "losa", "viga", "columna", "zapata", "cimiento"],
+    "tipo": "material",
+    "unidad": "bolsa"
+  },
+  "fierro": {
+    "categoria": "acero",
+    "keywords": ["acero", "fierro", "hierro", "barra", "varilla", "armadura", "estructural", "corrugado", "malla"],
+    "tipo": "material",
+    "unidad": "kg"
+  },
+  "arena": {
+    "categoria": "aridos",
+    "keywords": ["arena", "arido", "árido", "agregado fino"],
+    "tipo": "material",
+    "unidad": "m3"
+  },
+  "grava": {
+    "categoria": "aridos",
+    "keywords": ["grava", "ripio", "piedra", "agregado grueso", "gravilla"],
+    "tipo": "material",
+    "unidad": "m3"
+  },
+  "ladrillo": {
+    "categoria": "ceramicos",
+    "keywords": ["ladrillo", "mamposteria", "mampostería", "muro", "tabique", "pared", "bloque"],
+    "tipo": "material",
+    "unidad": "pieza"
+  },
+  "tuberia_pvc": {
+    "categoria": "tuberias",
+    "keywords": ["tuberia", "tubería", "pvc", "agua potable", "alcantarillado", "desague", "desagüe", "drenaje"],
+    "tipo": "material",
+    "unidad": "ml"
+  },
+  "valvula": {
+    "categoria": "valvulas",
+    "keywords": ["valvula", "válvula", "llave", "compuerta", "accesorio hidraulico"],
+    "tipo": "material",
+    "unidad": "pieza"
+  },
+  "cable": {
+    "categoria": "electricos",
+    "keywords": ["cable", "electrico", "eléctrico", "instalacion electrica", "luminaria", "tablero", "conductor", "tomacorriente"],
+    "tipo": "material",
+    "unidad": "ml"
+  },
+  "pintura": {
+    "categoria": "acabados",
+    "keywords": ["pintura", "latex", "látex", "revoque", "estuco", "acabado", "enlucido"],
+    "tipo": "material",
+    "unidad": "lt"
+  },
+  "ceramica": {
+    "categoria": "acabados",
+    "keywords": ["ceramica", "cerámica", "piso", "azulejo", "porcelanato", "revestimiento"],
+    "tipo": "material",
+    "unidad": "m2"
+  },
+  "madera": {
+    "categoria": "carpinteria",
+    "keywords": ["madera", "encofrado", "cimbra", "puntal", "tabla", "listón", "carpinteria"],
+    "tipo": "material",
+    "unidad": "p2"
+  }
+}
