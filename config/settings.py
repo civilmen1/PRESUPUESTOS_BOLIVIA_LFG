@@ -166,6 +166,18 @@ GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 # Activa el uso de LLM en la extracción (requiere al menos una API key).
 USAR_LLM = os.getenv("USAR_LLM", "false").lower() in {"1", "true", "yes"}
 
+# --------------------------------------------------------------------------- #
+# Embeddings para BUSQUEDA SEMANTICA (vincular por significado, no por palabras)
+# --------------------------------------------------------------------------- #
+# Se usan modelos LIGEROS via API/Ollama (sin torch ni paquetes pesados):
+#   - Local (tu PC): Ollama  ->  ollama pull nomic-embed-text
+#   - Online (Render): Gemini (gratis) si hay GEMINI_API_KEY
+# Si ningun proveedor responde, el sistema cae al matcher TF-IDF de siempre.
+USAR_EMBEDDINGS = os.getenv("USAR_EMBEDDINGS", "true").lower() in {"1", "true", "yes"}
+OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
+GEMINI_EMBED_MODEL = os.getenv("GEMINI_EMBED_MODEL", "text-embedding-004")
+OPENAI_EMBED_MODEL = os.getenv("OPENAI_EMBED_MODEL", "text-embedding-3-small")
+
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 APP_NAME = "APU Bolivia Generator"
 APP_VERSION = "0.1.0"

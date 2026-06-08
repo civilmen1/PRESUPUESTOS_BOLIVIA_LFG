@@ -42,7 +42,27 @@ class SemanticMatcher:
         self._docs_tokens: List[Counter] = []
         self._docs_bigramas: List[set] = []
         self._idf: dict[str, float] = {}
+        self._emb_secciones = None  # vectores (lazy); None = no calculado/no disp.
+        self._emb_intentado = False
         self._construir_indice()
+
+    # --------------------------------------------------------------------- #
+    # Embeddings (opcional): mejora el ranking por SIGNIFICADO si hay proveedor
+    # --------------------------------------------------------------------- #
+    def _vectores_secciones(self):
+        if self._emb_intentado:
+            return self._emb_secciones
+        self._emb_intentado = True
+        try:
+            from core import embeddings
+            if not embeddings.disponible():
+                return None
+            textos = [f"{s.titulo}. {(s.contenido or '')[:500]}"
+                      for s in self.secciones]
+            self._emb_secciones = embeddings.embed(textos)
+        except Exception:
+            self._emb_secciones = None
+        return self._emb_secciones
 
     def _construir_indice(self) -> None:
         n = len(self.secciones)
@@ -110,6 +130,16 @@ class SemanticMatcher:
         # Etapa 1: ámbito del módulo
         idx_modulo = self.detectar_modulo(modulo_nombre)
 
+        # Embeddings (opcional): vector semántico del ítem y de las secciones.
+        emb_secciones = self._vectores_secciones()
+        q_emb = None
+        if emb_secciones:
+            try:
+                from core import embeddings
+                q_emb = embeddings.embed_uno(consulta)
+            except Exception:
+                q_emb = None
+
         resultados: List[VinculoTecnico] = []
         for i, (sec, toks) in enumerate(zip(self.secciones, self._docs_tokens)):
             score = self._coseno(q_vec, self._vector(toks))
@@ -118,6 +148,11 @@ class SemanticMatcher:
             solape_bg = len(q_bigr & self._docs_bigramas[i])
             if solape_bg:
                 score += 0.05 * solape_bg
+
+            # mezcla semántica: similitud por significado (embeddings)
+            if q_emb and emb_secciones and emb_secciones[i]:
+                from core import embeddings
+                score += 0.6 * embeddings.coseno(q_emb, emb_secciones[i])
 
             # bonus por número de ítem presente en el título de la sección
             if num_item and num_item in (sec.titulo or ""):

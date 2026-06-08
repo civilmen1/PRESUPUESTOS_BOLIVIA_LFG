@@ -11,7 +11,10 @@ from __future__ import annotations
 from functools import lru_cache
 
 from config import settings
+from config.logging_config import get_logger
 from core.text_cleaner import normalizar, tokenizar
+
+logger = get_logger(__name__)
 
 # Semilla versionada en el repo (banco inicial) y copia PERSISTENTE en el disco.
 _RUTA_SEED = settings.DATA_DIR / "banco_apu.json"
@@ -140,11 +143,54 @@ def _limpiar_desc(actividad: str) -> str:
     return txt.strip()
 
 
+# Cache en memoria de los vectores (embeddings) de las actividades del banco.
+_emb_banco: dict = {"firma": None, "vectores": None}
+
+
+def _vectores_banco(apus: list[dict]):
+    """Embeddings de las actividades del banco, cacheados por firma del contenido.
+    Devuelve None si no hay proveedor de embeddings."""
+    import hashlib
+    from core import embeddings
+    firma = hashlib.sha1(
+        "\n".join(a.get("actividad", "") for a in apus).encode("utf-8")
+    ).hexdigest()
+    if _emb_banco["firma"] == firma:
+        return _emb_banco["vectores"]
+    descs = [_limpiar_desc(a.get("actividad", "")) for a in apus]
+    vects = embeddings.embed(descs)
+    _emb_banco["firma"], _emb_banco["vectores"] = firma, vects
+    return vects
+
+
 def buscar_apu(descripcion: str, umbral: float = 0.3) -> dict | None:
-    """Devuelve el APU del banco mas parecido a la descripcion (o None)."""
+    """Devuelve el APU del banco mas parecido a la descripcion (o None).
+
+    1) Si hay embeddings disponibles, busca por SIGNIFICADO (coseno).
+    2) Si no, cae a similitud de palabras (Jaccard), como siempre.
+    """
     apus = listar_apus()
     if not apus:
         return None
+
+    # 1) Busqueda semantica (embeddings) ------------------------------------
+    try:
+        from core import embeddings
+        if embeddings.disponible():
+            qv = embeddings.embed_uno(descripcion)
+            vects = _vectores_banco(apus)
+            if qv and vects:
+                mejor, mejor_cos = None, 0.55  # umbral de coseno semantico
+                for a, v in zip(apus, vects):
+                    s = embeddings.coseno(qv, v)
+                    if s > mejor_cos:
+                        mejor, mejor_cos = a, s
+                if mejor is not None:
+                    return mejor
+    except Exception:
+        logger.debug("Busqueda semantica no disponible; uso TF-IDF", exc_info=True)
+
+    # 2) Respaldo por palabras (Jaccard) ------------------------------------
     q = set(tokenizar(descripcion))
     if not q:
         return None
@@ -153,7 +199,6 @@ def buscar_apu(descripcion: str, umbral: float = 0.3) -> dict | None:
         toks = set(tokenizar(_limpiar_desc(a.get("actividad", ""))))
         if not toks:
             continue
-        # similitud de Jaccard
         inter = len(q & toks)
         union = len(q | toks) or 1
         score = inter / union
