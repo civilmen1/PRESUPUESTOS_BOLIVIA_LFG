@@ -45,23 +45,22 @@ def render(proyecto):
     except Exception as exc:
         st.warning(f"No se pudo determinar el estado de la IA: {exc}")
 
-    # Prueba directa de la IA: confirma que el modelo responde de verdad y, si
-    # falla, explica el motivo exacto (clave, modelo, cuota o red).
+    # Prueba directa de la IA: confirma que el motor ACTIVO responde (Ollama,
+    # Gemini u OpenAI) y, si falla, explica el motivo exacto.
     with st.expander("Probar la IA (diagnostico)"):
         if st.button("Ejecutar prueba de IA"):
-            from core.llm_extractor import diagnosticar_gemini
-            with st.spinner("Diagnosticando la conexion con Gemini..."):
-                d = diagnosticar_gemini()
+            from core.llm_extractor import diagnosticar_ia
+            with st.spinner("Diagnosticando el motor de IA..."):
+                d = diagnosticar_ia()
+            prov = d.get("proveedor", "")
             if d["ok"]:
-                st.success(d["mensaje"])
+                st.success(f"[{prov}] {d['mensaje']}")
             else:
-                st.error(d["mensaje"])
-                if d["modelos"]:
-                    st.info("Modelos habilitados para tu clave (usa uno en "
+                st.error(f"[{prov}] {d['mensaje']}")
+                if d.get("modelos"):
+                    st.info("Modelos disponibles para tu clave (usa uno en "
                             "GEMINI_MODEL):")
                     st.code("\n".join(d["modelos"]))
-                st.caption("Tras corregir la variable en Render, vuelve a "
-                           "desplegar y repite esta prueba.")
 
     items = repositories.listar_items(proyecto.id)
     secciones = repositories.listar_secciones(proyecto.id)

@@ -327,6 +327,48 @@ def _gemini_json(prompt: str, modelo: str) -> Optional[str]:
     return None
 
 
+def diagnosticar_ia() -> dict:
+    """Diagnostico del motor de IA ACTIVO (Ollama local, Gemini u OpenAI).
+
+    Devuelve {ok, proveedor, mensaje, modelos}. Prioriza Ollama (local, gratis)."""
+    # 1) Ollama local (gratis, sin limites)
+    if settings.USAR_OLLAMA:
+        if not ollama_disponible():
+            return {"ok": False, "proveedor": "ollama", "modelos": [],
+                    "mensaje": (
+                        f"Ollama no responde en {settings.OLLAMA_HOST}. "
+                        "Verifica que Ollama este instalado y corriendo "
+                        "('ollama serve') y que descargaste el modelo con "
+                        f"'ollama pull {settings.OLLAMA_MODEL}'.")}
+        r = _ollama_json('Devuelve SOLO este JSON: {"ok":true}',
+                         settings.OLLAMA_MODEL)
+        if r:
+            return {"ok": True, "proveedor": "ollama", "modelos": [],
+                    "mensaje": (f"Ollama responde correctamente con el modelo "
+                                f"'{settings.OLLAMA_MODEL}'. Gratis, local y sin "
+                                "limites de tokens.")}
+        return {"ok": False, "proveedor": "ollama", "modelos": [],
+                "mensaje": (f"Ollama esta activo pero el modelo "
+                            f"'{settings.OLLAMA_MODEL}' no respondio. Descargalo "
+                            f"con: ollama pull {settings.OLLAMA_MODEL}")}
+    # 2) Gemini (nube)
+    if settings.GEMINI_API_KEY:
+        d = diagnosticar_gemini()
+        d["proveedor"] = "gemini"
+        return d
+    # 3) OpenAI (nube)
+    if settings.OPENAI_API_KEY:
+        r = _openai_json('Devuelve SOLO este JSON: {"ok":true}',
+                         settings.OPENAI_MODEL)
+        return {"ok": bool(r), "proveedor": "openai", "modelos": [],
+                "mensaje": ("OpenAI responde." if r else
+                            "OpenAI no respondio (revisa OPENAI_API_KEY).")}
+    return {"ok": False, "proveedor": "ninguno", "modelos": [],
+            "mensaje": ("No hay IA configurada. Para usar Ollama local pon "
+                        "USAR_OLLAMA=true y USAR_LLM=true en tu .env, o "
+                        "configura una API key.")}
+
+
 def diagnosticar_gemini() -> dict:
     """Diagnostico detallado de la conexion con Gemini.
 
