@@ -42,10 +42,13 @@ def _num(v):
 def importar(ruta: str) -> list[dict]:
     """Devuelve la lista de APUs extraidos del Excel.
 
-    Recorre TODAS las hojas y reconoce dos formatos de Formulario B-2:
+    Recorre TODAS las hojas y reconoce tres formatos de Formulario B-2:
       - 'estandar': etiquetas en celdas ('Actividad' en col C, valor en col E).
       - 'vertical': cabecera 'ACTIVIDAD:/UNITARIO:/CANTIDAD:' en col A y
         secciones '1.- MATERIALES', '2.- MANO DE OBRA', '3.- EQUIPO...'.
+      - 'flexible': cabecera 'Actividad :/Unidad :/Cantidad :' y fila de
+        encabezado 'DESCRIPCION | UNIDAD | CANTIDAD | PRECIO...' desde la que se
+        detectan las columnas dinamicamente (sirve para variantes desplazadas).
     """
     wb = load_workbook(ruta, data_only=True)
     apus: list[dict] = []
@@ -54,6 +57,8 @@ def importar(ruta: str) -> list[dict]:
         extraidos = _extraer_estandar(filas)
         if not extraidos:
             extraidos = _extraer_vertical(filas)
+        if not extraidos:
+            extraidos = _extraer_flexible(filas)
         apus.extend(extraidos)
     return apus
 
@@ -201,6 +206,138 @@ def _extraer_vertical(filas: list) -> list[dict]:
             actual[seccion].append({
                 "codigo": "", "descripcion": b, "unidad": unidad,
                 "cantidad": cantidad, "precio": precio})
+
+    if actual and (actual["materiales"] or actual["mano_obra"]
+                   or actual["equipo"]):
+        apus.append(actual)
+    return apus
+
+
+import re  # noqa: E402
+
+# Descripciones que son lineas de calculo/totales, no recursos.
+_EXCLUIR_FLEX = (
+    "total", "subtotal", "cargas sociales", "beneficios sociales", "impuesto",
+    "iva", "herramientas =", "herramientas -", "gastos generales", "utilidad",
+    "descripcion", "precio unitario",
+)
+# Palabras que marcan el cierre de las secciones de recursos (1,2,3).
+_FIN_SECCION = ("gastos generales", "utilidad", "impuesto")
+
+
+def _sin_numeracion(texto: str) -> str:
+    """Quita la numeracion inicial: '1.   MATERIALES' -> 'MATERIALES'."""
+    return re.sub(r"^[\d\.\)\-\s]+", "", texto).strip()
+
+
+def _seccion_flex(texto: str) -> str | None:
+    t = normalizar(_sin_numeracion(texto))
+    if t.startswith("materiales"):
+        return "materiales"
+    if t.startswith("mano de obra"):
+        return "mano_obra"
+    if t.startswith("equipo") or t.startswith("maquinaria"):
+        return "equipo"
+    return None
+
+
+def _valor_a_la_derecha(cols: list[str], idx: int) -> str:
+    """Primera celda no vacia a la derecha de idx (valor de una etiqueta)."""
+    for j in range(idx + 1, len(cols)):
+        if cols[j]:
+            return cols[j]
+    return ""
+
+
+def _extraer_flexible(filas: list) -> list[dict]:
+    """Formato Formulario B-2 con etiquetas 'Actividad :/Unidad :/Cantidad :' y
+    una fila de encabezado 'DESCRIPCION | UNIDAD | CANTIDAD | PRECIO...' desde la
+    que se detectan las columnas (tolera diseños desplazados de columna)."""
+    apus: list[dict] = []
+    actual = None
+    seccion = None
+    col_desc = col_und = col_cant = col_precio = None
+
+    def _nuevo(nombre):
+        return {"actividad": nombre or "Actividad", "unidad": "",
+                "cantidad": 1.0, "materiales": [], "mano_obra": [], "equipo": []}
+
+    for row in filas:
+        cols = [_txt(c) for c in row]
+        norm = [normalizar(c) for c in cols]
+
+        # 1) Fila de encabezado de columnas -> mapear posiciones dinamicamente.
+        if any(n.startswith("descripcion") for n in norm) and \
+                any(n.startswith("unidad") for n in norm):
+            col_und = col_cant = col_precio = None
+            for j, n in enumerate(norm):
+                if n.startswith("unidad"):
+                    col_und = j
+                elif n.startswith("cantidad"):
+                    col_cant = j
+                elif "precio" in n and col_precio is None:
+                    col_precio = j
+            col_desc = (col_und - 1) if col_und else None
+            continue
+
+        # 2) Etiquetas de cabecera del APU (actividad / unidad / cantidad).
+        etiqueta = False
+        for j, n in enumerate(norm):
+            if not n:
+                continue
+            if n.startswith("actividad"):
+                if actual and (actual["materiales"] or actual["mano_obra"]
+                               or actual["equipo"]):
+                    apus.append(actual)
+                actual = _nuevo(_valor_a_la_derecha(cols, j))
+                seccion = None
+                col_desc = col_und = col_cant = col_precio = None
+                etiqueta = True
+                break
+            if n.startswith("unitario") or n.startswith("unidad"):
+                if actual:
+                    actual["unidad"] = _valor_a_la_derecha(cols, j)
+                etiqueta = True
+                break
+            if n.startswith("cantidad"):
+                if actual:
+                    actual["cantidad"] = _num(_valor_a_la_derecha(cols, j)) or 1.0
+                etiqueta = True
+                break
+        if etiqueta:
+            continue
+        if actual is None:
+            continue
+
+        # 3) Cambio o cierre de seccion.
+        sec_detectada = None
+        for celda in cols:
+            sec_detectada = _seccion_flex(celda)
+            if sec_detectada:
+                break
+        if sec_detectada:
+            seccion = sec_detectada
+            continue
+        if any(any(k in n for k in _FIN_SECCION) for n in norm):
+            seccion = None
+            continue
+
+        # 4) Fila de recurso, segun las columnas detectadas.
+        if seccion and col_desc is not None and col_desc < len(cols):
+            desc = cols[col_desc]
+            dn = normalizar(desc)
+            if (desc and "%" not in desc
+                    and not any(k in dn for k in _EXCLUIR_FLEX)):
+                und = cols[col_und] if col_und is not None and \
+                    col_und < len(cols) else ""
+                cant = _num(cols[col_cant]) if col_cant is not None and \
+                    col_cant < len(cols) else 0.0
+                precio = _num(cols[col_precio]) if col_precio is not None and \
+                    col_precio < len(cols) else 0.0
+                if cant > 0 or precio > 0:
+                    actual[seccion].append({
+                        "codigo": "", "descripcion": desc, "unidad": und,
+                        "cantidad": cant, "precio": precio})
 
     if actual and (actual["materiales"] or actual["mano_obra"]
                    or actual["equipo"]):
