@@ -31,6 +31,13 @@ services:
         value: /data/logs
       - key: AUTH_SALT
         generateValue: true   # Render genera un secreto seguro
+      # Sincronizacion del banco hacia los equipos locales (la nube manda).
+      # Publica el banco en /app/static/banco_<token>.json. Copia ese enlace en
+      # cada PC local como APU_SYNC_URL.
+      - key: APU_SYNC_PUBLISH
+        value: "true"
+      - key: APU_SYNC_TOKEN
+        generateValue: true   # codigo secreto del enlace de sincronizacion
       - key: AUTH_EMAIL_DRY_RUN
         value: "false"   # envia correos reales (requiere SMTP de Gmail abajo)
       - key: EMAIL_DRY_RUN

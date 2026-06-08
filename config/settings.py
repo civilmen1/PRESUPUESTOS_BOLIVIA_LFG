@@ -178,6 +178,21 @@ OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
 GEMINI_EMBED_MODEL = os.getenv("GEMINI_EMBED_MODEL", "text-embedding-004")
 OPENAI_EMBED_MODEL = os.getenv("OPENAI_EMBED_MODEL", "text-embedding-3-small")
 
+# --------------------------------------------------------------------------- #
+# Sincronizacion del banco entre la nube (Render) y el local
+# --------------------------------------------------------------------------- #
+# La NUBE manda: publica el banco en ./static/banco_<token>.json y el local lo
+# baja al abrir. Configuracion:
+#   - En la NUBE (Render):  APU_SYNC_PUBLISH=true  y  APU_SYNC_TOKEN=<secreto>
+#   - En el LOCAL (tu PC):  APU_SYNC_URL=https://TU-APP.onrender.com/app/static/banco_<token>.json
+SYNC_TOKEN = os.getenv("APU_SYNC_TOKEN", "").strip()
+SYNC_PUBLISH = os.getenv("APU_SYNC_PUBLISH", "false").lower() in {"1", "true", "yes"}
+SYNC_URL = os.getenv("APU_SYNC_URL", "").strip()
+# Sincroniza automaticamente al abrir la app local (si hay SYNC_URL).
+SYNC_AL_ABRIR = os.getenv("APU_SYNC_AL_ABRIR", "true").lower() in {"1", "true", "yes"}
+# Carpeta servida por Streamlit (enableStaticServing) para publicar el banco.
+STATIC_DIR = BASE_DIR / "static"
+
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 APP_NAME = "APU Bolivia Generator"
 APP_VERSION = "0.1.0"

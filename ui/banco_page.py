@@ -101,9 +101,41 @@ def render(proyecto=None):
             help="Respaldo total del banco. Para llevarlo a otra PC, reemplaza "
                  "el archivo data/banco_apu.json con este.")
 
+    _panel_sync()
+
     _panel_cargar_json()
 
     _panel_cwicr()
+
+
+def _panel_sync():
+    """Sincronizacion con la nube (la nube manda; el local baja)."""
+    from core import sync
+    est = sync.estado()
+    with st.expander("Sincronizacion con la nube"):
+        if est["publica"]:
+            st.success("Esta es la NUBE: publica el banco para que tus equipos "
+                       "locales lo descarguen automaticamente.")
+            st.caption("En cada PC local, configura APU_SYNC_URL con el enlace "
+                       "/app/static/banco_<token>.json de este servidor.")
+        elif est["url_local"]:
+            st.info("Esta app baja el banco de la nube al abrir"
+                    + (" (automatico activado)." if est["auto"] else "."))
+            st.caption(f"Origen: {est['url_local']}")
+            if st.button("Sincronizar ahora (bajar de la nube)", type="primary"):
+                with st.spinner("Descargando el banco de la nube..."):
+                    res = sync.sincronizar_desde_nube(fusionar=True)
+                if res:
+                    st.success(f"Sincronizado: {res['nuevos']} APU nuevos. "
+                               f"Total ahora: {res['despues']}.")
+                    st.rerun()
+                else:
+                    st.error("No se pudo sincronizar (revisa APU_SYNC_URL y tu "
+                             "conexion a internet).")
+        else:
+            st.caption("Sincronizacion no configurada. En la nube pon "
+                       "APU_SYNC_PUBLISH=true y APU_SYNC_TOKEN; en tu PC pon "
+                       "APU_SYNC_URL con el enlace del servidor.")
 
     _panel_respaldos()
 

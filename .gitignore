@@ -20,3 +20,6 @@ logs/
 .pytest_cache/
 .streamlit/secrets.toml
 .DS_Store
+
+# Banco publicado para sincronizacion (generado en runtime)
+static/banco_*.json
