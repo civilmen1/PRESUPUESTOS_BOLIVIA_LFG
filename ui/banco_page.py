@@ -78,6 +78,18 @@ def render(proyecto=None):
     st.download_button("Descargar banco en Markdown (compacto)", md,
                        file_name="banco_apu.md", mime="text/markdown")
 
+    # Descargar el banco COMPLETO en JSON (respaldo / migracion entre equipos).
+    # Lee el archivo persistente tal cual (incluye TODOS los APU del servidor).
+    # Para usarlo en otra PC, reemplaza data/banco_apu.json con este archivo.
+    ruta_json = banco_apu.ruta_persistente()
+    if ruta_json.exists():
+        st.download_button(
+            f"Descargar banco completo en JSON ({len(apus)} APU)",
+            ruta_json.read_text(encoding="utf-8"),
+            file_name="banco_apu.json", mime="application/json",
+            help="Respaldo total del banco. Para llevarlo a otra PC, reemplaza "
+                 "el archivo data/banco_apu.json con este.")
+
     st.divider()
     _panel_moderacion()
 
