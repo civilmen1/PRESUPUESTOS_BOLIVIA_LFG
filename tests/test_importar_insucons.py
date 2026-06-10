@@ -58,15 +58,30 @@ def test_parsear_apu_separa_secciones_y_descarta_precios():
     assert not any("herramientas menores" in d for d in desc_eq)
 
 
-def test_descubrir_enlaces_filtra_grupos():
+def test_descubrir_enlaces_filtra_otros_grupos_y_la_propia_pagina():
+    base = ("https://www.insucons.com/analisis-precio-unitario/hh/"
+            "grupos/2/artefactos-sanitarios")
     html = """
-    <a href="/analisis-precio-unitario/hh/grupos">Grupos</a>
-    <a href="/analisis-precio-unitario/hh/item/123">APU 123</a>
-    <a href="https://www.insucons.com/analisis-precio-unitario/hh/item/456">APU 456</a>
+    <a href="/analisis-precio-unitario/hh/grupos/2/artefactos-sanitarios">Yo</a>
+    <a href="/analisis-precio-unitario/hh/grupos/3/obras-de-hormigon">Otro grupo</a>
+    <a href="/analisis-precio-unitario/hh/123/inodoro-con-tanque-bajo">APU 123</a>
+    <a href="https://www.insucons.com/analisis-precio-unitario/hh/456/lavamanos">APU 456</a>
     <a href="/otra-cosa">Ruido</a>
     """
-    enlaces = imp._descubrir_enlaces(html, "https://www.insucons.com/x")
-    assert any("item/123" in e for e in enlaces)
-    assert any("item/456" in e for e in enlaces)
-    assert not any(e.rstrip("/").endswith("grupos") for e in enlaces)
+    enlaces = imp._descubrir_enlaces(html, base)
+    # Se queda con los APUs individuales...
+    assert any("123/inodoro" in e for e in enlaces)
+    assert any("456/lavamanos" in e for e in enlaces)
+    # ...y descarta otros listados de grupo, la propia pagina y el ruido.
+    assert not any("/grupos/" in e for e in enlaces)
     assert not any("otra-cosa" in e for e in enlaces)
+
+
+def test_descubrir_enlaces_con_patron_explicito():
+    base = "https://www.insucons.com/analisis-precio-unitario/hh/grupos/2/x"
+    html = """
+    <a href="/analisis-precio-unitario/hh/990/grifo">Si</a>
+    <a href="/quien-sabe/990/grifo">No</a>
+    """
+    enlaces = imp._descubrir_enlaces(html, base, patron=r"/hh/\d+/")
+    assert len(enlaces) == 1 and "990/grifo" in enlaces[0]

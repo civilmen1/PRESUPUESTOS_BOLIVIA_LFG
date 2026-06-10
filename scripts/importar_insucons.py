@@ -234,26 +234,58 @@ def parsear_apu(html: str, url: str = "") -> Optional[dict]:
 # --------------------------------------------------------------------------- #
 #  Recorrido en red (se ejecuta en TU PC; este entorno no tiene salida)
 # --------------------------------------------------------------------------- #
-def _descubrir_enlaces(html: str, base_url: str) -> list[str]:
-    """Saca de la pagina de grupos los enlaces a APUs individuales."""
+# Prefijo de la seccion de APUs en insucons.
+_PREFIJO_APU = "/analisis-precio-unitario/"
+# Una pagina de LISTADO de grupo termina en  /grupos/<id>/<slug>  (sin mas
+# segmentos). Los APUs individuales cuelgan mas abajo o por otra ruta.
+_RE_GRUPO_LISTADO = re.compile(r"/grupos/\d+/[^/]+/?$")
+
+# insucons bloquea User-Agents de bot (403). Hay que parecer un navegador.
+_HEADERS_NAVEGADOR = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                   "AppleWebKit/537.36 (KHTML, like Gecko) "
+                   "Chrome/124.0 Safari/537.36"),
+    "Accept": ("text/html,application/xhtml+xml,application/xml;q=0.9,"
+               "image/avif,image/webp,*/*;q=0.8"),
+    "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+}
+
+
+def _descubrir_enlaces(html: str, base_url: str,
+                       patron: Optional[str] = None) -> list[str]:
+    """Saca de la pagina de grupo los enlaces a APUs individuales.
+
+    Por defecto toma los enlaces bajo /analisis-precio-unitario/ que NO sean a
+    su vez paginas de listado de grupo y que no sean la propia pagina. Con
+    `patron` (regex) se filtra exactamente por la ruta del item."""
     from bs4 import BeautifulSoup
     soup = BeautifulSoup(html, "html.parser")
-    prefijo = "/analisis-precio-unitario/"
+    re_patron = re.compile(patron) if patron else None
+    seed = urlparse(base_url).path.rstrip("/")
     vistos: dict[str, None] = {}
     for a in soup.find_all("a", href=True):
-        href = a["href"]
-        full = urljoin(base_url, href)
+        full = urljoin(base_url, a["href"]).split("#")[0]
         path = urlparse(full).path
-        if prefijo in path and not path.rstrip("/").endswith("grupos"):
-            vistos.setdefault(full.split("#")[0], None)
+        if re_patron:
+            if re_patron.search(path):
+                vistos.setdefault(full, None)
+            continue
+        if (_PREFIJO_APU in path and path.rstrip("/") != seed
+                and not _RE_GRUPO_LISTADO.search(path)):
+            vistos.setdefault(full, None)
     return list(vistos)
 
 
-def _descargar(url: str) -> Optional[str]:
+def _descargar(url: str, sesion=None) -> Optional[str]:
     import requests
-    headers = {"User-Agent": settings.SCRAPER_USER_AGENT}
+    # Permite forzar un UA propio por entorno; si no, usa el de navegador.
+    headers = dict(_HEADERS_NAVEGADOR)
+    ua_env = settings.SCRAPER_USER_AGENT
+    if ua_env and "Bot" not in ua_env:
+        headers["User-Agent"] = ua_env
+    cliente = sesion or requests
     try:
-        r = requests.get(url, headers=headers, timeout=settings.SCRAPER_TIMEOUT)
+        r = cliente.get(url, headers=headers, timeout=settings.SCRAPER_TIMEOUT)
         r.raise_for_status()
         return r.text
     except Exception as exc:
@@ -263,19 +295,24 @@ def _descargar(url: str) -> Optional[str]:
 
 def importar_insucons(url_grupos: str, contiene: Optional[list] = None,
                       max_apus: Optional[int] = None,
-                      demora: float = 1.0) -> list[dict]:
+                      demora: float = 1.0,
+                      patron: Optional[str] = None) -> list[dict]:
     """Recorre la pagina de grupos -> cada APU -> rendimientos (precio 0)."""
+    import requests
     contiene = [c.strip().lower() for c in (contiene or []) if c.strip()]
-    html = _descargar(url_grupos)
+    sesion = requests.Session()
+    html = _descargar(url_grupos, sesion)
     if not html:
+        logger.warning("Sin HTML de %s (¿403 anti-bot? prueba SCRAPER_USER_AGENT "
+                       "de navegador o el modo --html).", url_grupos)
         return []
-    enlaces = _descubrir_enlaces(html, url_grupos)
+    enlaces = _descubrir_enlaces(html, url_grupos, patron=patron)
     logger.info("APUs encontrados en la pagina de grupos: %d", len(enlaces))
     apus: list[dict] = []
     for i, enlace in enumerate(enlaces):
         if max_apus and len(apus) >= max_apus:
             break
-        pagina = _descargar(enlace)
+        pagina = _descargar(enlace, sesion)
         if not pagina:
             continue
         apu = parsear_apu(pagina, url=enlace)
@@ -311,6 +348,9 @@ def main() -> None:
     max_apus = None
     if "--max" in args:
         max_apus = int(args[args.index("--max") + 1])
+    patron = None
+    if "--patron" in args:
+        patron = args[args.index("--patron") + 1]
 
     # Modo offline: parsear un HTML guardado (para probar sin red).
     if "--html" in args:
@@ -320,7 +360,8 @@ def main() -> None:
         apus = [apu] if apu else []
     else:
         url = args[0]
-        apus = importar_insucons(url, contiene=contiene, max_apus=max_apus)
+        apus = importar_insucons(url, contiene=contiene, max_apus=max_apus,
+                                 patron=patron)
 
     if contiene and "--html" in args and apus:
         apus = [a for a in apus
