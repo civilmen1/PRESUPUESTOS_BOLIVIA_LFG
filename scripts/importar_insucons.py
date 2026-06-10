@@ -326,6 +326,61 @@ def importar_insucons(url_grupos: str, contiene: Optional[list] = None,
     return apus
 
 
+def diagnostico(url_grupos: str, patron: Optional[str] = None,
+                ruta_salida: str = "insucons_muestra.html") -> None:
+    """Baja el grupo + el PRIMER APU, guarda su HTML y describe que contiene.
+
+    Sirve para afinar el parser cuando 'APUs obtenidos: 0': muestra cuantas
+    tablas hay, los encabezados de cada una y si la pagina parece traer la
+    tabla en el HTML o cargarla por JavaScript."""
+    import requests
+    from bs4 import BeautifulSoup
+    sesion = requests.Session()
+    html = _descargar(url_grupos, sesion)
+    if not html:
+        print("No se pudo bajar la pagina de grupos (revisa red / 403).")
+        return
+    enlaces = _descubrir_enlaces(html, url_grupos, patron=patron)
+    print(f"Enlaces a APU encontrados: {len(enlaces)}")
+    for e in enlaces[:5]:
+        print("   ", e)
+    if not enlaces:
+        return
+    pagina = _descargar(enlaces[0], sesion)
+    if not pagina:
+        print("No se pudo bajar el primer APU.")
+        return
+    with open(ruta_salida, "w", encoding="utf-8") as f:
+        f.write(pagina)
+    print(f"\nHTML del primer APU guardado en: {ruta_salida}"
+          f"  ({len(pagina)} caracteres)")
+    soup = BeautifulSoup(pagina, "html.parser")
+    tablas = soup.find_all("table")
+    print(f"Tablas <table> en la pagina: {len(tablas)}")
+    for i, t in enumerate(tablas):
+        filas = t.find_all("tr")
+        prim = filas[0].get_text(" | ", strip=True)[:120] if filas else ""
+        print(f"  tabla #{i}: {len(filas)} filas | 1a fila: {prim}")
+    # Pistas de render por JavaScript (la tabla no viene en el HTML plano).
+    bajo = pagina.lower()
+    if not tablas:
+        for pista in ("vue", "react", "ng-", "data-v-", "__next", "axios",
+                      "vue.js", "app.js"):
+            if pista in bajo:
+                print(f"  (posible carga por JavaScript: aparece '{pista}')")
+                break
+    # Que ve el parser actual:
+    apu = parsear_apu(pagina, url=enlaces[0])
+    if apu:
+        print(f"\nParser actual -> actividad='{apu['actividad'][:50]}' "
+              f"unidad='{apu['unidad']}' M:{len(apu['materiales'])} "
+              f"MO:{len(apu['mano_obra'])} EQ:{len(apu['equipo'])}")
+    else:
+        print("\nParser actual -> no reconocio la tabla (0 recursos).")
+    print("\n>>> Pega aqui el contenido de", ruta_salida,
+          "(o un trozo con la tabla) para afinar el parser.")
+
+
 def _resumen(apus: list[dict]) -> None:
     print(f"APUs obtenidos (rendimientos, sin precios): {len(apus)}")
     for a in apus[:8]:
@@ -351,6 +406,11 @@ def main() -> None:
     patron = None
     if "--patron" in args:
         patron = args[args.index("--patron") + 1]
+
+    # Modo diagnostico: baja un APU, guarda su HTML y describe que contiene.
+    if "--diag" in args:
+        diagnostico(args[0], patron=patron)
+        return
 
     # Modo offline: parsear un HTML guardado (para probar sin red).
     if "--html" in args:
