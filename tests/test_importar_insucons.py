@@ -58,23 +58,28 @@ def test_parsear_apu_separa_secciones_y_descarta_precios():
     assert not any("herramientas menores" in d for d in desc_eq)
 
 
-def test_descubrir_enlaces_filtra_otros_grupos_y_la_propia_pagina():
+def test_descubrir_enlaces_estructura_real_insucons():
+    # Estructura real: el listado es /hh/grupos/<id>/<slug> y cada APU es
+    # /hh/<grupo>/<id-numerico>/<slug>. Los hrefs vienen RELATIVOS.
     base = ("https://www.insucons.com/analisis-precio-unitario/hh/"
             "grupos/2/artefactos-sanitarios")
     html = """
-    <a href="/analisis-precio-unitario/hh/grupos/2/artefactos-sanitarios">Yo</a>
+    <a href="analisis-precio-unitario">Analisis de Precios Unitarios</a>
+    <a href="analisis-precio-unitario/hh/artefactos-sanitarios/35/inodoro-blanco">Inodoro</a>
+    <a href="analisis-precio-unitario/hh/artefactos-sanitarios/42/lavamanos-blanco">Lavamanos</a>
     <a href="/analisis-precio-unitario/hh/grupos/3/obras-de-hormigon">Otro grupo</a>
-    <a href="/analisis-precio-unitario/hh/123/inodoro-con-tanque-bajo">APU 123</a>
-    <a href="https://www.insucons.com/analisis-precio-unitario/hh/456/lavamanos">APU 456</a>
-    <a href="/otra-cosa">Ruido</a>
+    <a href="usuario/login">Iniciar sesion</a>
     """
     enlaces = imp._descubrir_enlaces(html, base)
-    # Se queda con los APUs individuales...
-    assert any("123/inodoro" in e for e in enlaces)
-    assert any("456/lavamanos" in e for e in enlaces)
-    # ...y descarta otros listados de grupo, la propia pagina y el ruido.
+    # Se queda con los APUs individuales (con id numerico)...
+    assert any("35/inodoro-blanco" in e for e in enlaces)
+    assert any("42/lavamanos-blanco" in e for e in enlaces)
+    # ...y descarta el menu, otros grupos y el enlace generico sin id.
     assert not any("/grupos/" in e for e in enlaces)
-    assert not any("otra-cosa" in e for e in enlaces)
+    assert not any(e.rstrip("/").endswith("analisis-precio-unitario")
+                   for e in enlaces)
+    assert not any("login" in e for e in enlaces)
+    assert len(enlaces) == 2
 
 
 def test_descubrir_enlaces_con_patron_explicito():

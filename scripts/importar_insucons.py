@@ -239,6 +239,10 @@ _PREFIJO_APU = "/analisis-precio-unitario/"
 # Una pagina de LISTADO de grupo termina en  /grupos/<id>/<slug>  (sin mas
 # segmentos). Los APUs individuales cuelgan mas abajo o por otra ruta.
 _RE_GRUPO_LISTADO = re.compile(r"/grupos/\d+/[^/]+/?$")
+# Un APU individual tiene un segmento NUMERICO (su id) seguido del slug, p.ej.
+#   /analisis-precio-unitario/hh/artefactos-sanitarios/35/inodoro-blanco-tanque-bajo
+# La pagina de LISTADO usa /hh/grupos/... (sin id propio del item) -> se excluye.
+_RE_APU = re.compile(r"/analisis-precio-unitario/[^/]+/[^/]+/\d+/[^/]+")
 
 # insucons bloquea User-Agents de bot (403). Hay que parecer un navegador.
 _HEADERS_NAVEGADOR = {
@@ -270,8 +274,8 @@ def _descubrir_enlaces(html: str, base_url: str,
             if re_patron.search(path):
                 vistos.setdefault(full, None)
             continue
-        if (_PREFIJO_APU in path and path.rstrip("/") != seed
-                and not _RE_GRUPO_LISTADO.search(path)):
+        if (_RE_APU.search(path) and "/grupos/" not in path
+                and path.rstrip("/") != seed):
             vistos.setdefault(full, None)
     return list(vistos)
 
@@ -388,11 +392,38 @@ def diagnostico(url_grupos: str, patron: Optional[str] = None,
         if pista in bajo:
             print(f"\n(ojo: aparece '{pista}' -> posible carga dinamica por JS)")
             break
-    if "login" in bajo and "iniciar sesion" in bajo.replace("ó", "o"):
-        print("(ojo: la pagina menciona 'iniciar sesion' -> puede requerir "
-              "cuenta para ver el detalle del APU)")
-    print(f"\n>>> Pegame esta lista de arriba (y, si puedes, abre "
-          f"{ruta_salida} y pega un trozo con la lista de items).")
+    # Ahora baja un APU REAL y analiza su tabla de rendimientos.
+    reales = _descubrir_enlaces(html, url_grupos, patron=patron)
+    print(f"\n--- APUs reales detectados con el filtro nuevo: {len(reales)} ---")
+    if not reales:
+        print("   (el filtro no encontro APUs; revisa el patron)")
+        return
+    print("   ej:", reales[0])
+    apu_html = _descargar(reales[0], sesion)
+    if not apu_html:
+        print("   No se pudo bajar el APU.")
+        return
+    ruta_apu = "insucons_apu.html"
+    with open(ruta_apu, "w", encoding="utf-8") as f:
+        f.write(apu_html)
+    print(f"   HTML del APU guardado en: {ruta_apu}  ({len(apu_html)} caracteres)")
+    asoup = BeautifulSoup(apu_html, "html.parser")
+    tablas = asoup.find_all("table")
+    print(f"   Tablas <table> en el APU: {len(tablas)}")
+    for i, t in enumerate(tablas):
+        filas = t.find_all("tr")
+        muestra = " || ".join(
+            fr.get_text(" | ", strip=True)[:90] for fr in filas[:3])
+        print(f"     tabla #{i}: {len(filas)} filas | {muestra}")
+    apu = parsear_apu(apu_html, url=reales[0])
+    if apu:
+        print(f"   Parser actual -> '{apu['actividad'][:40]}' [{apu['unidad']}] "
+              f"M:{len(apu['materiales'])} MO:{len(apu['mano_obra'])} "
+              f"EQ:{len(apu['equipo'])}")
+    else:
+        print("   Parser actual -> no reconocio la tabla del APU (0 recursos).")
+    print(f"\n>>> Pegame: las 'tablas del APU' de arriba; y abre {ruta_apu} y "
+          f"pega el trozo donde estan los materiales/mano de obra/equipo.")
 
 
 def _resumen(apus: list[dict]) -> None:
