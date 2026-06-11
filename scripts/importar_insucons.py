@@ -266,9 +266,16 @@ def _descubrir_enlaces(html: str, base_url: str,
     soup = BeautifulSoup(html, "html.parser")
     re_patron = re.compile(patron) if patron else None
     seed = urlparse(base_url).path.rstrip("/")
+    # insucons usa hrefs RELATIVOS que codifican la ruta completa desde la raiz
+    # ('analisis-precio-unitario/hh/...'). Hay que resolver contra la raiz del
+    # sitio (o el <base href> si existe), no contra la carpeta de la pagina.
+    p = urlparse(base_url)
+    raiz = f"{p.scheme}://{p.netloc}/"
+    base_tag = soup.find("base", href=True)
+    rbase = urljoin(base_url, base_tag["href"]) if base_tag else raiz
     vistos: dict[str, None] = {}
     for a in soup.find_all("a", href=True):
-        full = urljoin(base_url, a["href"]).split("#")[0]
+        full = urljoin(rbase, a["href"]).split("#")[0]
         path = urlparse(full).path
         if re_patron:
             if re_patron.search(path):
