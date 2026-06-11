@@ -327,58 +327,72 @@ def importar_insucons(url_grupos: str, contiene: Optional[list] = None,
 
 
 def diagnostico(url_grupos: str, patron: Optional[str] = None,
-                ruta_salida: str = "insucons_muestra.html") -> None:
-    """Baja el grupo + el PRIMER APU, guarda su HTML y describe que contiene.
+                ruta_salida: str = "insucons_grupo.html") -> None:
+    """Baja la pagina de GRUPO y hace inventario de sus enlaces para descubrir
+    cual es el patron real de los APUs (no la navegacion del sitio).
 
-    Sirve para afinar el parser cuando 'APUs obtenidos: 0': muestra cuantas
-    tablas hay, los encabezados de cada una y si la pagina parece traer la
-    tabla en el HTML o cargarla por JavaScript."""
+    Guarda el HTML del grupo y lista los hrefs CRUDOS agrupados, para ver con
+    que patron se enlazan los APUs individuales (inodoro, lavamanos, etc.)."""
     import requests
+    from collections import Counter
     from bs4 import BeautifulSoup
     sesion = requests.Session()
     html = _descargar(url_grupos, sesion)
     if not html:
-        print("No se pudo bajar la pagina de grupos (revisa red / 403).")
-        return
-    enlaces = _descubrir_enlaces(html, url_grupos, patron=patron)
-    print(f"Enlaces a APU encontrados: {len(enlaces)}")
-    for e in enlaces[:5]:
-        print("   ", e)
-    if not enlaces:
-        return
-    pagina = _descargar(enlaces[0], sesion)
-    if not pagina:
-        print("No se pudo bajar el primer APU.")
+        print("No se pudo bajar la pagina de grupo (revisa red / 403).")
         return
     with open(ruta_salida, "w", encoding="utf-8") as f:
-        f.write(pagina)
-    print(f"\nHTML del primer APU guardado en: {ruta_salida}"
-          f"  ({len(pagina)} caracteres)")
-    soup = BeautifulSoup(pagina, "html.parser")
-    tablas = soup.find_all("table")
-    print(f"Tablas <table> en la pagina: {len(tablas)}")
-    for i, t in enumerate(tablas):
-        filas = t.find_all("tr")
-        prim = filas[0].get_text(" | ", strip=True)[:120] if filas else ""
-        print(f"  tabla #{i}: {len(filas)} filas | 1a fila: {prim}")
-    # Pistas de render por JavaScript (la tabla no viene en el HTML plano).
-    bajo = pagina.lower()
-    if not tablas:
-        for pista in ("vue", "react", "ng-", "data-v-", "__next", "axios",
-                      "vue.js", "app.js"):
-            if pista in bajo:
-                print(f"  (posible carga por JavaScript: aparece '{pista}')")
-                break
-    # Que ve el parser actual:
-    apu = parsear_apu(pagina, url=enlaces[0])
-    if apu:
-        print(f"\nParser actual -> actividad='{apu['actividad'][:50]}' "
-              f"unidad='{apu['unidad']}' M:{len(apu['materiales'])} "
-              f"MO:{len(apu['mano_obra'])} EQ:{len(apu['equipo'])}")
-    else:
-        print("\nParser actual -> no reconocio la tabla (0 recursos).")
-    print("\n>>> Pega aqui el contenido de", ruta_salida,
-          "(o un trozo con la tabla) para afinar el parser.")
+        f.write(html)
+    print(f"HTML del grupo guardado en: {ruta_salida}  ({len(html)} caracteres)")
+
+    soup = BeautifulSoup(html, "html.parser")
+    anclas = soup.find_all("a", href=True)
+    print(f"Total de enlaces <a> en la pagina: {len(anclas)}\n")
+
+    # Menu/navegacion conocida que NO son APUs.
+    nav = ("login", "registro", "insumos", "presupuesto", "proveedor",
+           "contacto", "ayuda", "acerca", "privacidad", "condiciones",
+           "facebook", "twitter", "instagram", "youtube", "mailto:", "tel:",
+           "/grupos", "javascript:", "#")
+
+    crudos = [a["href"] for a in anclas]
+    candidatos = []
+    for a in anclas:
+        href = a["href"]
+        texto = " ".join(a.get_text(" ", strip=True).split())[:45]
+        low = href.lower()
+        if any(p in low for p in nav) or href in ("/", ""):
+            continue
+        candidatos.append((href, texto))
+
+    # Conteo por "forma" de ruta (primer segmento) para ver patrones.
+    formas = Counter()
+    for href in crudos:
+        p = urlparse(urljoin(url_grupos, href)).path.strip("/").split("/")
+        formas[p[2] if len(p) > 2 else "/".join(p)] += 1
+    print("Formas de ruta mas comunes (3er segmento tras /hh/):")
+    for forma, n in formas.most_common(12):
+        print(f"   {n:>3}  .../{forma}")
+
+    print(f"\nEnlaces que NO son navegacion ({len(candidatos)}) "
+          f"-> candidatos a APU:")
+    for href, texto in candidatos[:40]:
+        print(f"   [{texto}]  ->  {href}")
+    if not candidatos:
+        print("   (ninguno: la lista de APUs probablemente se carga por "
+              "JavaScript o requiere LOGIN)")
+
+    bajo = html.lower()
+    for pista in ("vue", "react", "ng-app", "data-v-", "__next", "axios",
+                  "x-data", "alpine", "datatable", "ajax"):
+        if pista in bajo:
+            print(f"\n(ojo: aparece '{pista}' -> posible carga dinamica por JS)")
+            break
+    if "login" in bajo and "iniciar sesion" in bajo.replace("ó", "o"):
+        print("(ojo: la pagina menciona 'iniciar sesion' -> puede requerir "
+              "cuenta para ver el detalle del APU)")
+    print(f"\n>>> Pegame esta lista de arriba (y, si puedes, abre "
+          f"{ruta_salida} y pega un trozo con la lista de items).")
 
 
 def _resumen(apus: list[dict]) -> None:
