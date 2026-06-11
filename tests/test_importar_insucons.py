@@ -90,3 +90,68 @@ def test_descubrir_enlaces_con_patron_explicito():
     """
     enlaces = imp._descubrir_enlaces(html, base, patron=r"/hh/\d+/")
     assert len(enlaces) == 1 and "990/grifo" in enlaces[0]
+
+
+# HTML que imita la estructura REAL de un APU de insucons: una <table> por
+# seccion, con columnas 'Codigo | Descripcion | Unidad | Cantidad | Precio
+# productivo | Costo total' (el codigo a veces falta).
+_HTML_REAL = """
+<html><head><title>APU de Inodoro blanco tanque bajo - Insucons</title></head>
+<body>
+<table><tr><td>Inicio</td><td>Insumos</td><td>Analisis</td></tr></table>
+<table>
+ <tr><td colspan="5">1. MATERIALES</td></tr>
+ <tr><td>Descripcion</td><td>Unidad</td><td>Cantidad</td>
+     <td>Precio productivo</td><td>Costo total</td></tr>
+ <tr><td>65</td><td>Cemento blanco</td><td>kg</td><td>0.50</td>
+     <td>7.00</td><td>3.50</td></tr>
+ <tr><td>70</td><td>Inodoro de porcelana</td><td>pza</td><td>1.00</td>
+     <td>350.00</td><td>350.00</td></tr>
+ <tr><td>Total materiales</td><td>353.50</td></tr>
+</table>
+<table>
+ <tr><td colspan="5">2. MANO DE OBRA</td></tr>
+ <tr><td>Descripcion</td><td>Unidad</td><td>Cantidad</td>
+     <td>Precio productivo</td><td>Costo total</td></tr>
+ <tr><td>1277</td><td>Ayudante</td><td>hr</td><td>3.50</td>
+     <td>12.50</td><td>43.75</td></tr>
+ <tr><td>1280</td><td>Plomero</td><td>hr</td><td>2.00</td>
+     <td>18.00</td><td>36.00</td></tr>
+</table>
+<table>
+ <tr><td colspan="3">3. EQUIPO, MAQUINARIA Y HERRAMIENTAS</td></tr>
+ <tr><td>Herramientas</td><td>5.00%</td><td>9.74</td></tr>
+</table>
+<table>
+ <tr><td colspan="3">4. GASTOS GENERALES Y ADMINISTRATIVOS</td></tr>
+ <tr><td>Gastos generales = (% de 1+2+3)</td><td>8.00%</td><td>32.83</td></tr>
+</table>
+</body></html>
+"""
+
+
+def test_parsear_apu_estructura_real_insucons():
+    apu = imp.parsear_apu(_HTML_REAL, url="http://x/1")
+    assert apu is not None
+    assert apu["actividad"] == "Inodoro blanco tanque bajo"  # sin 'APU de' ni sufijo
+    assert apu["fuente"] == "Insucons"
+
+    # Materiales: cemento e inodoro (NO el 'Total materiales'), con codigo.
+    desc_mat = [m["descripcion"] for m in apu["materiales"]]
+    assert "Cemento blanco" in desc_mat and "Inodoro de porcelana" in desc_mat
+    assert not any("total" in d.lower() for d in desc_mat)
+    cem = next(m for m in apu["materiales"] if m["descripcion"] == "Cemento blanco")
+    assert cem["codigo"] == "65" and cem["unidad"] == "kg"
+    assert cem["cantidad"] == 0.50
+    assert all(m["precio"] == 0 for m in apu["materiales"])  # rendimiento, sin precio
+
+    # Mano de obra: 2 obreros, unidad en horas, precio 0.
+    assert len(apu["mano_obra"]) == 2
+    ayud = next(r for r in apu["mano_obra"] if "ayudante" in r["descripcion"].lower())
+    assert ayud["cantidad"] == 3.50 and ayud["unidad"] == "HR" and ayud["precio"] == 0
+
+    # Equipo: 'Herramientas 5.00%' se descarta (es porcentaje, no recurso).
+    assert apu["equipo"] == []
+    # Gastos generales/utilidad/impuestos NO entran como recursos.
+    todas = apu["materiales"] + apu["mano_obra"] + apu["equipo"]
+    assert not any("gastos" in r["descripcion"].lower() for r in todas)

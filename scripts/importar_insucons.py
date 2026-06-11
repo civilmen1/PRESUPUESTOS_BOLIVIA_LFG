@@ -194,41 +194,92 @@ def parsear_tabla(tabla) -> dict:
 
 
 def _titulo_y_unidad(soup) -> tuple[str, str]:
-    """Heuristica: actividad = primer h1/h2/title; unidad = texto 'Unidad: X'
-    que aparezca antes de la primera tabla."""
+    """actividad = h1/h2/title (limpiando 'APU de' y el sufijo del sitio);
+    unidad = texto 'Unidad: X' si aparece (con separador, para no confundir
+    con la palabra 'undefined' del JavaScript)."""
     actividad = ""
     for sel in ("h1", "h2", "title"):
         nodo = soup.find(sel)
         if nodo and _txt(nodo):
             actividad = _txt(nodo)
             break
-    # texto de cabecera (antes de la primera tabla) para buscar la unidad
-    cabecera = ""
-    for el in soup.find_all(string=True):
-        if el.find_parent("table"):
-            continue
-        cabecera += " " + str(el)
-    m = re.search(r"\b(?:unidad|und)\.?\s*[:=]?\s*([A-Za-z0-9²³/\.]{1,8})",
-                  cabecera, re.IGNORECASE)
+    actividad = re.sub(r"^\s*(apu de|an[aá]lisis de precios?\s*unitarios?)\s*[:\-]?\s*",
+                       "", actividad, flags=re.IGNORECASE).strip()
+    actividad = re.sub(r"\s*[-|]\s*insucons.*$", "", actividad,
+                       flags=re.IGNORECASE).strip()
+    texto = soup.get_text(" ", strip=True)
+    m = re.search(r"\bunidad\b\s*[:=]\s*([A-Za-z0-9²³/\.]{1,6})", texto,
+                  re.IGNORECASE)
     unidad = m.group(1).strip(" .") if m else ""
-    return actividad, unidad
+    return actividad or "APU sin titulo", unidad
+
+
+def _recurso_desde_fila(cols: list[str]) -> Optional[dict]:
+    """Lee una fila de recurso del formato insucons. Las columnas son
+    'Codigo | Descripcion | Unidad | Cantidad | Precio productivo | Costo total'
+    (el codigo a veces no esta), asi que se mapean DESDE LA DERECHA. Precio=0."""
+    llenas = [c for c in cols if c]
+    if len(cols) < 5 or len(llenas) < 4:
+        return None  # filas de total/subtotal/encabezado quedan cortas
+    norm = [normalizar(c) for c in cols]
+    if any("%" in c for c in cols):
+        return None  # 'Herramientas 5.00%' u otros porcentajes: no es recurso
+    if any(n.startswith(("total", "subtotal", "sub total", "descripcion"))
+           for n in norm):
+        return None  # fila de totales o de encabezado de columnas
+    # Mapeo posicional desde la derecha: [..desc, unidad, cantidad, precio, costo]
+    desc = cols[-5]
+    unidad = cols[-4]
+    cantidad = _num(cols[-3])
+    if not normalizar(desc) or cantidad <= 0:
+        return None
+    codigo = cols[-6] if len(cols) >= 6 else ""
+    return {"codigo": codigo, "descripcion": desc, "unidad": unidad,
+            "cantidad": cantidad, "precio": 0}   # precio DESCARTADO a proposito
 
 
 def parsear_apu(html: str, url: str = "") -> Optional[dict]:
-    """Parsea UNA pagina de APU de insucons y devuelve el dict del banco."""
+    """Parsea una pagina de APU de insucons y devuelve el dict del banco (B-2).
+
+    Soporta los dos formatos:
+      - insucons: cada seccion (1. Materiales / 2. Mano de obra / 3. Equipo)
+        es una <table> propia, identificada por su fila de titulo.
+      - generico: una sola tabla con filas-titulo de seccion en su interior.
+    En ambos los precios se descartan (precio=0): solo se conservan rendimientos.
+    """
     from bs4 import BeautifulSoup
+    from core import mano_obra
     soup = BeautifulSoup(html, "html.parser")
     tablas = soup.find_all("table")
     if not tablas:
         return None
-    # Elige la tabla con mas filas (la del detalle del APU).
-    tabla = max(tablas, key=lambda t: len(t.find_all("tr")))
-    grupos = parsear_tabla(tabla)
+    grupos = {"materiales": [], "mano_obra": [], "equipo": []}
+    for tabla in tablas:
+        filas = list(_filas(tabla))
+        if not filas:
+            continue
+        sec = _seccion_de(" ".join(c for c in filas[0] if c))
+        if sec:
+            # Tabla = una seccion del B-2. Sus filas son recursos.
+            for cols in filas[1:]:
+                rec = _recurso_desde_fila(cols)
+                if not rec:
+                    continue
+                if sec == "mano_obra":
+                    rec["descripcion"] = mano_obra.limpiar_descripcion(
+                        rec["descripcion"])
+                    rec["unidad"] = "HR"
+                grupos[sec].append(rec)
+        else:
+            # Formato de tabla unica con secciones internas (fallback).
+            sub = parsear_tabla(tabla)
+            for k in grupos:
+                grupos[k].extend(sub[k])
     if not (grupos["materiales"] or grupos["mano_obra"] or grupos["equipo"]):
         return None
     actividad, unidad = _titulo_y_unidad(soup)
-    return {"actividad": actividad or "APU sin titulo", "unidad": unidad,
-            "cantidad": 1.0, **grupos, "fuente": "Insucons", "url": url}
+    return {"actividad": actividad, "unidad": unidad, "cantidad": 1.0,
+            **grupos, "fuente": "Insucons", "url": url}
 
 
 # --------------------------------------------------------------------------- #
