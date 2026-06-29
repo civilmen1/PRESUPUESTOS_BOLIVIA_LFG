@@ -163,6 +163,14 @@ USAR_OLLAMA = os.getenv("USAR_OLLAMA", "false").lower() in {"1", "true", "yes"}
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+# GLM (Z.AI) — MÁXIMA CALIDAD. Modelo insignia GLM-5.2: fuerte en código y
+# razonamiento, ~60% más barato que Claude. API compatible con OpenAI, así que
+# se usa con `requests` (sin SDK nuevo). Consigue tu clave en https://z.ai/.
+# Solo lee/interpreta partidas; NUNCA interviene en el cálculo del B-2.
+GLM_API_KEY = os.getenv("GLM_API_KEY", "")
+GLM_MODEL = os.getenv("GLM_MODEL", "glm-5.2")
+GLM_BASE_URL = os.getenv("GLM_BASE_URL", "https://api.z.ai/api/paas/v4")
+GLM_TIMEOUT = int(os.getenv("GLM_TIMEOUT", "90"))
 # Activa el uso de LLM en la extracción (requiere al menos una API key).
 USAR_LLM = os.getenv("USAR_LLM", "false").lower() in {"1", "true", "yes"}
 

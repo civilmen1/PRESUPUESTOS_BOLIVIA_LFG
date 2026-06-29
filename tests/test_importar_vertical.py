@@ -214,3 +214,56 @@ def test_importa_formato_titulado(tmp_path):
     assert a["materiales"][0]["cantidad"] == 26.5
     assert [m["descripcion"] for m in a["mano_obra"]] == ["ALBANIL"]
     assert a["equipo"] == []  # solo habia la linea de herramientas (%)
+
+
+def _crear_xlsx_varios_apu(ruta):
+    """Una hoja con UN solo titulo 'ANALISIS DE PRECIO' y VARIOS bloques
+    'APU: <nombre>' (export propio del programa). Antes se colapsaban en uno."""
+    wb = Workbook()
+    ws = wb.active
+    cab = ["Código", "Descripción", "Unidad", "Cantidad",
+           "Precio Prod. (Bs)", "Costo Total (Bs)"]
+    filas = [
+        ["ANALISIS DE PRECIO"],
+        ["  APU: Accesorios de baño"],
+        ["1. MATERIALES"],
+        cab,
+        ["65", "Cemento blanco", "kg", 0.5, 7, 3.5],
+        ["79", "Accesorios de baño", "jgo", 1, 196.25, 196.25],
+        [None, None, None, None, "TOTAL MATERIALES", 199.75],
+        ["2. MANO DE OBRA"],
+        cab,
+        ["1277", "Ayudante", "hr", 3.5, 12.5, 43.75],
+        [None, None, None, None, "TOTAL MANO DE OBRA", 43.75],
+        ["  APU: Bidé blanco"],
+        ["1. MATERIALES"],
+        cab,
+        ["80", "Bidé de porcelana", "pza", 1, 250, 250],
+        [None, None, None, None, "TOTAL MATERIALES", 250],
+        ["2. MANO DE OBRA"],
+        cab,
+        ["1295", "Maestro albañil", "hr", 2.0, 18.75, 37.5],
+        [None, None, None, None, "TOTAL MANO DE OBRA", 37.5],
+    ]
+    for f in filas:
+        ws.append(f)
+    wb.save(ruta)
+
+
+def test_importa_varios_apu_bajo_un_titulo(tmp_path):
+    ruta = tmp_path / "varios.xlsx"
+    _crear_xlsx_varios_apu(str(ruta))
+    apus = importar(str(ruta))
+    # Dos APUs separados (antes salia 1 con todo mezclado).
+    assert len(apus) == 2
+    assert [a["actividad"] for a in apus] == ["Accesorios de baño", "Bidé blanco"]
+    a0, a1 = apus
+    assert [m["descripcion"] for m in a0["materiales"]] == [
+        "Cemento blanco", "Accesorios de baño"]
+    assert [m["descripcion"] for m in a0["mano_obra"]] == ["Ayudante"]
+    assert [m["descripcion"] for m in a1["materiales"]] == ["Bidé de porcelana"]
+    assert a1["materiales"][0]["cantidad"] == 1
+    # No se cuela ninguna fila TOTAL como recurso.
+    todas = sum(([m["descripcion"] for m in a["materiales"] + a["mano_obra"]]
+                 for a in apus), [])
+    assert not any("total" in d.lower() for d in todas)

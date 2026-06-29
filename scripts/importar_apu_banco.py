@@ -488,6 +488,19 @@ def _extraer_titulado(filas: list) -> list[dict]:
             fase = "act"
             continue
 
+        # Nueva actividad delimitada por 'APU: <nombre>' (export propio del
+        # programa, donde cada hoja contiene VARIOS APUs bajo un solo titulo
+        # 'ANALISIS DE PRECIO'). Sin esto, todos los APUs de la hoja se
+        # colapsaban en uno solo.
+        if re.match(r"apu\s*:", n):
+            if actual and (actual["materiales"] or actual["mano_obra"]
+                           or actual["equipo"]):
+                apus.append(actual)
+            actual = _nuevo(_valor_etiqueta_inline(txt))
+            seccion = None
+            fase = "und"  # la unidad puede venir en la linea siguiente
+            continue
+
         # Cabecera sin etiqueta: actividad y unidad en lineas sueltas.
         if fase == "act":
             if n.startswith(("proyecto", "moneda", "cantidad", "presup",
