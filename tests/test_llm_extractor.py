@@ -17,9 +17,31 @@ def test_proveedores_sin_keys():
     # incluye el proveedor local Ollama además de los de pago
     assert "openai" in disp and "anthropic" in disp and "gemini" in disp
     assert any("ollama" in k for k in disp)
+    # GLM-5.2 (Z.AI) también debe aparecer en la lista de proveedores
+    assert any("glm" in k for k in disp)
     # entorno de test: sin keys y sin servicio Ollama corriendo
     assert all(v is False for v in disp.values())
     assert hay_llm() is False
+
+
+def test_glm_disponible_con_key(monkeypatch):
+    """Con GLM_API_KEY configurada, GLM aparece como proveedor disponible."""
+    from config import settings
+    monkeypatch.setattr(settings, "GLM_API_KEY", "test-key", raising=False)
+    disp = proveedores_disponibles()
+    assert disp.get("glm-5.2 (z.ai)") is True
+    assert hay_llm() is True
+
+
+def test_glm_json_sin_red_devuelve_none(monkeypatch):
+    """Si la llamada HTTP falla, _glm_json devuelve None (no rompe la cadena)."""
+    from config import settings
+    from core import llm_extractor
+    monkeypatch.setattr(settings, "GLM_API_KEY", "test-key", raising=False)
+    # Base URL inalcanzable → requests lanza, se captura y devuelve None.
+    monkeypatch.setattr(settings, "GLM_BASE_URL", "http://127.0.0.1:9", raising=False)
+    monkeypatch.setattr(settings, "GLM_TIMEOUT", 1, raising=False)
+    assert llm_extractor._glm_json("hola", "glm-5.2") is None
 
 
 def test_fallback_offline_sin_keys():

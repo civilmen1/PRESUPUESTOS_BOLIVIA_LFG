@@ -39,6 +39,7 @@ def proveedores_disponibles() -> dict:
     Los demás dependen de su API key (de pago).
     """
     return {
+        "glm-5.2 (z.ai)": bool(settings.GLM_API_KEY),
         "ollama (local gratis)": settings.USAR_OLLAMA and ollama_disponible(),
         "groq (online gratis)": bool(settings.GROQ_API_KEY),
         "openai": bool(settings.OPENAI_API_KEY),
@@ -173,8 +174,11 @@ def extraer_estructurado(item_descripcion: str, spec: str, item_id: int = 0,
                                        spec=spec[:8000])
 
     contenido = None
+    # 0) GLM-5.2 (Z.AI) — máxima calidad; prioridad si hay key configurada
+    if settings.GLM_API_KEY:
+        contenido = _glm_json(prompt, modelo=settings.GLM_MODEL)
     # 1) Ollama local (gratis, sin tokens) — con esquema estructurado
-    if settings.USAR_OLLAMA and ollama_disponible():
+    if not contenido and settings.USAR_OLLAMA and ollama_disponible():
         contenido = _ollama_json(prompt, modelo=settings.OLLAMA_MODEL,
                                  esquema=_ESQUEMA_APU)
     # 2) Groq (online, gratis y rápido)
@@ -226,7 +230,9 @@ def interpretar_normativa(item_descripcion: str, spec: str) -> Optional[dict]:
     """Interpretación normativa (rol 2): Claude si hay key, si no Ollama local."""
     prompt = _PROMPT_NORMATIVO.format(item=item_descripcion, spec=spec[:8000])
     contenido = None
-    if settings.ANTHROPIC_API_KEY:
+    if settings.GLM_API_KEY:
+        contenido = _glm_json(prompt, modelo=settings.GLM_MODEL)
+    if not contenido and settings.ANTHROPIC_API_KEY:
         contenido = _anthropic_json(prompt, modelo=settings.ANTHROPIC_MODEL)
     if not contenido and settings.USAR_OLLAMA and ollama_disponible():
         contenido = _ollama_json(prompt, modelo=settings.OLLAMA_MODEL)
@@ -349,6 +355,34 @@ def _groq_json(prompt: str, modelo: str) -> Optional[str]:
         return None
 
 
+def _glm_json(prompt: str, modelo: str) -> Optional[str]:
+    """Llama a GLM-5.2 (Z.AI), endpoint compatible con OpenAI. Pide JSON.
+
+    Mismo patrón que `_groq_json`: no requiere SDK, solo `requests`. Si la clave
+    es inválida o la red falla, devuelve None y la cadena cae al siguiente
+    proveedor (o al extractor offline), sin romper la app.
+    """
+    try:
+        import requests
+    except ImportError:
+        return None
+    try:
+        resp = requests.post(
+            f"{settings.GLM_BASE_URL}/chat/completions",
+            headers={"Authorization": f"Bearer {settings.GLM_API_KEY}",
+                     "Content-Type": "application/json"},
+            json={"model": modelo,
+                  "messages": [{"role": "user", "content": prompt}],
+                  "response_format": {"type": "json_object"},
+                  "temperature": 0.1},
+            timeout=settings.GLM_TIMEOUT)
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
+    except Exception:
+        logger.exception("Error llamando a GLM (%s)", settings.GLM_MODEL)
+        return None
+
+
 def _gemini_json(prompt: str, modelo: str) -> Optional[str]:
     """Llama a Gemini por su API REST (sin SDK) pidiendo respuesta en JSON.
 
@@ -398,6 +432,16 @@ def diagnosticar_ia() -> dict:
     """Diagnostico del motor de IA ACTIVO (Ollama local, Gemini u OpenAI).
 
     Devuelve {ok, proveedor, mensaje, modelos}. Prioriza Ollama (local, gratis)."""
+    # 0) GLM-5.2 (Z.AI) — máxima calidad; si hay key, manda
+    if settings.GLM_API_KEY:
+        r = _glm_json('Devuelve SOLO este JSON: {"ok":true}', settings.GLM_MODEL)
+        return {"ok": bool(r), "proveedor": "glm", "modelos": [],
+                "mensaje": (f"GLM responde correctamente con el modelo "
+                            f"'{settings.GLM_MODEL}' (Z.AI). Máxima calidad."
+                            if r else
+                            "GLM no respondió. Revisa que GLM_API_KEY sea válida "
+                            "(https://z.ai/) y que el modelo "
+                            f"'{settings.GLM_MODEL}' exista.")}
     # 1) Ollama local (gratis, sin limites)
     if settings.USAR_OLLAMA:
         if not ollama_disponible():
