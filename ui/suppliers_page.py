@@ -87,3 +87,30 @@ def render(proyecto):
                     precio=precio, region=region,
                     proveedor_id=int(prov_id) or None, fuente="bd")
                 st.success("Precio registrado en la BD interna.")
+
+        st.divider()
+        st.markdown("**Carga masiva de precios (CSV / Excel)**")
+        st.caption("Sube tu lista de precios reales. Columnas mínimas: "
+                   "**descripcion**, **unidad**, **precio**. Opcionales: "
+                   "categoria, region, moneda. Estos precios alimentan el "
+                   "Nivel 1 del cotizador para que los APU salgan con precio.")
+        archivo = st.file_uploader("Archivo de precios", type=["csv", "xlsx", "xls"],
+                                   key="precios_masivo")
+        if archivo is not None and st.button("Importar precios del archivo"):
+            from core.importar_precios import importar_precios
+            import tempfile
+            from pathlib import Path
+            try:
+                suf = Path(archivo.name).suffix or ".csv"
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suf) as tmp:
+                    tmp.write(archivo.getbuffer())
+                    ruta_tmp = tmp.name
+                with st.spinner("Importando precios..."):
+                    res = importar_precios(ruta_tmp, fuente="importado")
+                st.success(f"Importados {res['importados']} precios "
+                           f"({res['omitidos']} omitidos de {res['total']}).")
+                if res["errores"]:
+                    st.warning("Algunas filas con error:\n" +
+                               "\n".join(res["errores"][:10]))
+            except Exception as exc:
+                st.error(f"No se pudo importar: {exc}")
