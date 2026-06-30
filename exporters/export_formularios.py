@@ -41,6 +41,12 @@ _FILL_GRIS = PatternFill("solid", fgColor=_GRIS)
 _CENTER = Alignment(horizontal="center", vertical="center", wrap_text=True)
 _RIGHT = Alignment(horizontal="right", vertical="center", wrap_text=True)
 _LEFT = Alignment(horizontal="left", vertical="center", wrap_text=True)
+# Variantes SIN ajuste de texto (wrap_text=False) para el texto que va FUERA de
+# las tablas: encabezado (títulos y datos del proyecto), notas, subtítulos y pie
+# de firma. Dentro de las tablas se mantiene el wrap (descripciones largas).
+_CENTER_NW = Alignment(horizontal="center", vertical="center", wrap_text=False)
+_RIGHT_NW = Alignment(horizontal="right", vertical="center", wrap_text=False)
+_LEFT_NW = Alignment(horizontal="left", vertical="center", wrap_text=False)
 
 _FMT_MONTO = "#,##0.00"
 _FMT_CANT = "#,##0.0000"
@@ -113,18 +119,18 @@ def _autoalto_filas(ws, fila_ini, fila_fin, col_texto="B", ancho_col=44):
 
 def _encabezado(ws, codigo: str, titulo: str, proyecto, ncols: int = 6):
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
-    _set(ws, "A1", f"FORMULARIO {codigo}", _F_TITULO, _CENTER)
+    _set(ws, "A1", f"FORMULARIO {codigo}", _F_TITULO, _CENTER_NW)
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ncols)
-    _set(ws, "A2", titulo.upper(), _F_BOLD, _CENTER)
+    _set(ws, "A2", titulo.upper(), _F_BOLD, _CENTER_NW)
     ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=ncols)
     tc_txt = (f"   |   T/C: {proyecto.tipo_cambio:.2f} Bs/$us"
               if proyecto.moneda == "USD" else "")
     _set(ws, "A3", f"Proyecto: {proyecto.nombre}   |   Entidad: "
                    f"{proyecto.entidad or '—'}   |   Moneda: {proyecto.moneda}"
-                   f"{tc_txt}", _F_NORM, _CENTER)
+                   f"{tc_txt}", _F_NORM, _CENTER_NW)
     ws.merge_cells(start_row=4, start_column=1, end_row=4, end_column=ncols)
     _set(ws, "A4", f"Proponente: {proyecto.proponente or '—'}   |   "
-                   f"Departamento: {proyecto.region or '—'}", _F_NORM, _CENTER)
+                   f"Departamento: {proyecto.region or '—'}", _F_NORM, _CENTER_NW)
     return 6  # primera fila de contenido
 
 
@@ -180,7 +186,7 @@ def _b1_presupuesto(ws, proyecto, items):
     _borde_rango(ws, fila, "ABCDEF")
     fila += 2
     _set(ws, f"A{fila}", f"Son: {_a_letras(total_general)} bolivianos.", _F_NORM,
-         _LEFT)
+         _LEFT_NW)
     _autoalto_filas(ws, ini_texto, fila, "B", 50)
     _config_pagina(ws, 6)
     _pie_firma(ws, fila + 2, proyecto, 6)
@@ -206,7 +212,7 @@ def _b2_una_hoja_por_item(wb, proyecto, items):
     if n == 0:  # sin ítems con recursos: hoja informativa
         ws = wb.create_sheet("B-2 APU")
         fila = _encabezado(ws, "B-2", "Análisis de Precio Unitario", proyecto, 5)
-        _set(ws, f"A{fila}", "Genere los APU antes de exportar.", _F_NORM, _LEFT)
+        _set(ws, f"A{fila}", "Genere los APU antes de exportar.", _F_NORM, _LEFT_NW)
         _config_pagina(ws, 5)
 
 
@@ -222,10 +228,10 @@ def _b2_item(ws, proyecto, it, recursos):
     _borde_rango(ws, fila, headers_cols)
     fila_desc = fila
     fila += 1
-    _set(ws, f"A{fila}", "Unidad:", _F_BOLD, _LEFT)
-    _set(ws, f"B{fila}", it.unidad, _F_NORM, _CENTER)
-    _set(ws, f"C{fila}", "Cantidad:", _F_BOLD, _RIGHT)
-    _set(ws, f"D{fila}", it.cantidad, _F_NORM, _RIGHT, fmt=_FMT_MONTO)
+    _set(ws, f"A{fila}", "Unidad:", _F_BOLD, _LEFT_NW)
+    _set(ws, f"B{fila}", it.unidad, _F_NORM, _CENTER_NW)
+    _set(ws, f"C{fila}", "Cantidad:", _F_BOLD, _RIGHT_NW)
+    _set(ws, f"D{fila}", it.cantidad, _F_NORM, _RIGHT_NW, fmt=_FMT_MONTO)
     fila += 2
 
     # Anchos de columna
@@ -400,7 +406,7 @@ def _b4_equipo(ws, proyecto, items):
     if not equipos:
         ws.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=5)
         _set(ws, f"A{fila}", "Sin equipo registrado en los APU. Complete según el "
-                             "requerimiento del DBC.", _F_NORM, _LEFT)
+                             "requerimiento del DBC.", _F_NORM, _LEFT_NW)
         _config_pagina(ws, 5)
         _pie_firma(ws, fila + 2, proyecto, 5)
         return
@@ -470,7 +476,7 @@ def _a8_cronograma_obra(ws, proyecto, items):
     _set(ws, f"A{fila-1}", f"Plazo contractual: {proyecto.plazo_dias} días "
                            f"calendario ({n_periodos} meses). Secuencia lógica "
                            f"(replanteo → preparación → estructura → instalaciones "
-                           f"→ acabados), barras tipo Gantt (CPM).", _F_NORM, _LEFT)
+                           f"→ acabados), barras tipo Gantt (CPM).", _F_NORM, _LEFT_NW)
     fila += 1
     headers = ["N°", "Ítem / Actividad", "Fase", "Unidad", "Cantidad"] + \
               [f"Mes {i}" for i in range(1, n_periodos + 1)]
@@ -559,7 +565,7 @@ def _a9_movilizacion(ws, proyecto, items):
     if not equipos:
         ws.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=ncols)
         _set(ws, f"A{fila}", "Sin equipo registrado en los APU (Formulario B-2).",
-             _F_NORM, _LEFT)
+             _F_NORM, _LEFT_NW)
         fila += 2
         _config_pagina(ws, ncols)
         _pie_firma(ws, fila, proyecto, ncols)
@@ -584,7 +590,7 @@ def _a9_movilizacion(ws, proyecto, items):
     fila += 1
     _set(ws, f"A{fila}", "Nota: la movilización abarca desde el primer hasta el "
                          "último mes de uso de cada equipo según el A-8.", _F_NORM,
-         _LEFT)
+         _LEFT_NW)
     fila += 2
     _config_pagina(ws, ncols)
     _pie_firma(ws, fila, proyecto, ncols)
@@ -607,9 +613,9 @@ def _b5_desembolsos(ws, proyecto, items):
     if proyecto.solicita_anticipo:
         _set(ws, f"A{fila}", f"Anticipo solicitado: SÍ  ·  "
                              f"{proyecto.porcentaje_anticipo*100:.0f}% = "
-                             f"{s} {_money(anticipo):,.2f}", _F_BOLD, _LEFT)
+                             f"{s} {_money(anticipo):,.2f}", _F_BOLD, _LEFT_NW)
     else:
-        _set(ws, f"A{fila}", "Anticipo solicitado: NO", _F_BOLD, _LEFT)
+        _set(ws, f"A{fila}", "Anticipo solicitado: NO", _F_BOLD, _LEFT_NW)
     fila += 2
 
     _fila_headers(ws, fila, ["Período", f"Avance valorado ({s})",
@@ -667,19 +673,19 @@ def _pie_firma(ws, fila, proyecto, ncols):
     fila += 2
     centro = max(2, ncols // 2)
     col = get_column_letter(centro)
-    _set(ws, f"{col}{fila}", "_______________________________", _F_NORM, _CENTER)
+    _set(ws, f"{col}{fila}", "_______________________________", _F_NORM, _CENTER_NW)
     fila += 1
     nombre = proyecto.representante_legal or "(Representante Legal)"
-    _set(ws, f"{col}{fila}", nombre, _F_BOLD, _CENTER)
+    _set(ws, f"{col}{fila}", nombre, _F_BOLD, _CENTER_NW)
     fila += 1
     if proyecto.ci_representante:
         _set(ws, f"{col}{fila}", f"C.I. {proyecto.ci_representante}", _F_NORM,
-             _CENTER)
+             _CENTER_NW)
         fila += 1
-    _set(ws, f"{col}{fila}", "REPRESENTANTE LEGAL", _F_NORM, _CENTER)
+    _set(ws, f"{col}{fila}", "REPRESENTANTE LEGAL", _F_NORM, _CENTER_NW)
     fila += 1
     empresa = proyecto.proponente or proyecto.nombre
-    _set(ws, f"{col}{fila}", empresa, _F_NORM, _CENTER)
+    _set(ws, f"{col}{fila}", empresa, _F_NORM, _CENTER_NW)
 
 
 # ---------------------------------------------------------------- helpers
