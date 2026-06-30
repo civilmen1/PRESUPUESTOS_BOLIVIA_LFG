@@ -31,3 +31,13 @@ class Item:
         ni cantidad: solo agrupa a los ítems que vienen debajo y NO requiere
         análisis de precios unitarios."""
         return (not (self.unidad or "").strip()) and (self.cantidad or 0) == 0
+
+    @property
+    def etiqueta_unidad(self) -> str:
+        """Texto de la unidad para mostrar junto al nombre de la actividad.
+
+        Da contexto de a qué unidad corresponden las cantidades del unitario
+        (p. ej. "[m3]"). Si la unidad no está definida, lo indica para que se
+        pueda completar (muchos ítems importados llegan sin unidad)."""
+        u = (self.unidad or "").strip()
+        return f"[{u}]" if u else "[sin unidad]"
