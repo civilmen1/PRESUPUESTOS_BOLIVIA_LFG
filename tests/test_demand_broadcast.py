@@ -43,9 +43,11 @@ def test_consolida_materiales():
     _usr, pid = _setup()
     mats = demand_broadcast.consolidar_materiales(pid)
     assert mats
-    # cemento: 7 bolsas/m3 * 10 m3 = 70
+    # El cemento se normaliza a kg (regla 'cemento siempre en kg', 1 bolsa=50 kg):
+    # 7 bolsas/m3 * 10 m3 = 70 bolsas = 3500 kg.
     cemento = [m for m in mats if "cemento" in m["descripcion"].lower()]
-    assert cemento and cemento[0]["cantidad"] == 70.0
+    assert cemento and cemento[0]["cantidad"] == 3500.0
+    assert cemento[0]["unidad"] == "kg"
 
 
 def test_difunde_y_registra_con_datos_comprador():

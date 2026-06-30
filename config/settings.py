@@ -87,6 +87,13 @@ FACTOR_IT = float(os.getenv("APU_IT", "0.0309"))
 # Vigencia de precios
 VIGENCIA_DIAS_DEFAULT = int(os.getenv("APU_VIGENCIA_DIAS", "30"))
 
+# Regla de unidad: el CEMENTO siempre en kg (no en bolsa). Mantiene el costo:
+# al pasar de bolsa a kg se multiplica la cantidad y se divide el precio por el
+# factor (1 bolsa = N kg). En Bolivia la bolsa de cemento es de 50 kg.
+FORZAR_CEMENTO_KG = os.getenv("APU_FORZAR_CEMENTO_KG", "true").lower() in {
+    "1", "true", "yes"}
+KG_POR_BOLSA_CEMENTO = float(os.getenv("APU_KG_POR_BOLSA_CEMENTO", "50"))
+
 DEPARTAMENTOS_BOLIVIA = [
     "La Paz",
     "Santa Cruz",

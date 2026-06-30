@@ -79,8 +79,9 @@ REGLAS DE CALIDAD (obligatorias):
 1. COHERENCIA: los recursos deben corresponder al tipo de obra. Ej.: un letrero
    metalico NO lleva tuberia PVC; una excavacion NO lleva cemento salvo que se
    indique. Piensa: que se usa REALMENTE para esta actividad.
-2. MATERIALES: unidad real (kg, m3, m2, ml, bolsa, pza, lt, glb, p2) y cantidad
-   por unidad del item, con desperdicio razonable.
+2. MATERIALES: unidad real (kg, m3, m2, ml, pza, lt, glb, p2) y cantidad
+   por unidad del item, con desperdicio razonable. CEMENTO: SIEMPRE en kg
+   (NUNCA en bolsa). 1 bolsa de cemento = 50 kg.
 3. MANO DE OBRA: SIEMPRE unidad "hora" (NUNCA "jornal" ni "dia"). No uses el
    termino "peon" (di "ayudante"). Indica las cuadrillas que correspondan
    (ej. soldador para estructura metalica, plomero para sanitario, pintor para
@@ -94,7 +95,7 @@ EJEMPLO 1 - Item: "Hormigon armado para zapatas H21", unidad m3:
 {{"alcance":"Provision y vaciado de hormigon armado H21 para zapatas",
 "normas":["NB 1225001"],"medicion":"metro cubico (m3)",
 "recursos":[
-{{"tipo":"material","descripcion":"Cemento Portland IP-30","unidad":"bolsa","cantidad":7.0}},
+{{"tipo":"material","descripcion":"Cemento Portland IP-30","unidad":"kg","cantidad":350.0}},
 {{"tipo":"material","descripcion":"Arena","unidad":"m3","cantidad":0.5}},
 {{"tipo":"material","descripcion":"Grava","unidad":"m3","cantidad":0.8}},
 {{"tipo":"material","descripcion":"Acero corrugado fy=4200","unidad":"kg","cantidad":80.0}},
