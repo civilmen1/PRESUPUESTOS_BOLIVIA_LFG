@@ -89,7 +89,14 @@ def _extraer_pdf(ruta: Path) -> str:
 
 
 def _ocr_pdf(ruta: Path, paginas: list[int] | None = None) -> str:
-    """OCR de un PDF escaneado: convierte páginas a imagen y las reconoce."""
+    """OCR de un PDF escaneado, procesando PÁGINA POR PÁGINA.
+
+    Convertir todo el PDF a imágenes de golpe puede consumir cientos de MB y
+    tumbar el contenedor por falta de memoria (OOM), lo que reinicia la app y
+    desconecta a los usuarios. Para evitarlo, se convierte y reconoce una sola
+    página a la vez, liberando cada imagen antes de pasar a la siguiente, con un
+    DPI y un tope de páginas configurables (config.settings).
+    """
     try:
         import pytesseract
         from pdf2image import convert_from_path
@@ -98,18 +105,60 @@ def _ocr_pdf(ruta: Path, paginas: list[int] | None = None) -> str:
             "OCR no disponible (instale pytesseract, pdf2image y Tesseract) "
             "para leer PDFs escaneados: %s", ruta.name)
         return ""
+
+    from config import settings
+    dpi = settings.OCR_DPI
+    max_pag = settings.OCR_MAX_PAGINAS
+
+    # Total de páginas (para acotar el recorrido sin cargar el PDF entero).
+    total = None
     try:
-        imagenes = convert_from_path(str(ruta), dpi=200)
-        partes = []
-        for i, img in enumerate(imagenes):
-            if paginas is not None and i not in paginas:
-                continue
-            texto = pytesseract.image_to_string(img, lang=_idioma_ocr())
-            partes.append(f"\n[[PAGINA {i + 1}]]\n{texto}")
-        return "\n".join(partes)
+        from pdf2image import pdfinfo_from_path
+        total = int(pdfinfo_from_path(str(ruta)).get("Pages", 0)) or None
     except Exception:
-        logger.exception("Error en OCR del PDF %s", ruta)
-        return ""
+        total = None
+
+    limite = max_pag if max_pag > 0 else (total or 0)
+    if total and max_pag > 0:
+        limite = min(total, max_pag)
+        if total > max_pag:
+            logger.warning(
+                "PDF %s tiene %d páginas; OCR procesa solo las primeras %d "
+                "(OCR_MAX_PAGINAS).", ruta.name, total, max_pag)
+
+    partes = []
+    pagina = 0
+    while limite == 0 or pagina < limite:
+        idx = pagina  # 0-indexed para la selección de `paginas`
+        pagina += 1
+        if paginas is not None and idx not in paginas:
+            continue
+        try:
+            imgs = convert_from_path(str(ruta), dpi=dpi,
+                                     first_page=pagina, last_page=pagina)
+        except Exception:
+            # Página fuera de rango o error puntual: si no sabíamos el total,
+            # esto marca el fin del documento.
+            if total is None:
+                break
+            logger.exception("Error convirtiendo página %d de %s",
+                             pagina, ruta.name)
+            continue
+        if not imgs:
+            break  # no hay más páginas
+        for img in imgs:
+            try:
+                texto = pytesseract.image_to_string(img, lang=_idioma_ocr())
+                partes.append(f"\n[[PAGINA {pagina}]]\n{texto}")
+            except Exception:
+                logger.exception("Error en OCR de la página %d de %s",
+                                 pagina, ruta.name)
+            finally:
+                try:
+                    img.close()  # libera la imagen de inmediato (memoria)
+                except Exception:
+                    pass
+    return "\n".join(partes)
 
 
 def _ocr_imagen(ruta: Path) -> str:

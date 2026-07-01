@@ -175,6 +175,17 @@ GLM_TIMEOUT = int(os.getenv("GLM_TIMEOUT", "90"))
 USAR_LLM = os.getenv("USAR_LLM", "false").lower() in {"1", "true", "yes"}
 
 # --------------------------------------------------------------------------- #
+# OCR (PDFs escaneados / imágenes)
+# --------------------------------------------------------------------------- #
+# Convertir un PDF a imágenes consume RAM: ~varias decenas de MB por página a
+# 150 DPI. Para no agotar la memoria del contenedor (y que NO se reinicie por
+# OOM, lo que desconecta a los usuarios), el OCR procesa PÁGINA POR PÁGINA y
+# limita el total. Sube OCR_DPI para más precisión (más RAM) o OCR_MAX_PAGINAS
+# para documentos largos (más RAM/tiempo).
+OCR_DPI = int(os.getenv("OCR_DPI", "150"))
+OCR_MAX_PAGINAS = int(os.getenv("OCR_MAX_PAGINAS", "40"))
+
+# --------------------------------------------------------------------------- #
 # Embeddings para BUSQUEDA SEMANTICA (vincular por significado, no por palabras)
 # --------------------------------------------------------------------------- #
 # Se usan modelos LIGEROS via API/Ollama (sin torch ni paquetes pesados):
