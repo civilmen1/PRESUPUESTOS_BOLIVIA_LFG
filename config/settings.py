@@ -129,6 +129,14 @@ SCRAPER_USER_AGENT = os.getenv(
     "SCRAPER_USER_AGENT",
     "APUBoliviaBot/1.0 (+https://apubolivia.local; cotizaciones)",
 )
+# Sitios reales a consultar en el Nivel 2 (lista de URLs separadas por coma).
+# Usa el marcador {q} donde va el término de búsqueda, p. ej.:
+#   SCRAPER_FUENTES=https://tienda.bo/buscar?q={q},https://otra.bo/s?term={q}
+# Si está vacío o SCRAPER_DRY_RUN=true, el scraper SIMULA (no sale a internet).
+# El parseo de precio es genérico (heurístico); para fiabilidad real conviene un
+# parser por sitio.
+SCRAPER_FUENTES = [u.strip() for u in os.getenv("SCRAPER_FUENTES", "").split(",")
+                   if u.strip()]
 
 # Enlace público de registro de proveedores (se incluye en los correos)
 REGISTRO_PROVEEDOR_URL = os.getenv(
