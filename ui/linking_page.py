@@ -201,8 +201,14 @@ def _render_item(it):
     estado = "" if it.validado_tecnico else "⏳"
     abierto_key = f"open_{it.id}"
     expandido = st.session_state.get(abierto_key, not it.validado_tecnico)
-    with st.expander(f"{estado} {it.numero or ''} {it.descripcion[:60]}",
-                     expanded=expandido):
+    # La unidad acompaña al nombre para dar contexto de las cantidades del
+    # unitario (las cantidades de los recursos son por 1 unidad de la actividad).
+    with st.expander(f"{estado} {it.numero or ''} {it.descripcion[:60]}  "
+                     f"{it.etiqueta_unidad}", expanded=expandido):
+        unidad_txt = (it.unidad or "").strip()
+        if unidad_txt:
+            st.caption(f"Las cantidades de abajo corresponden a **1 {unidad_txt}** "
+                       "de esta actividad.")
         # Si el ítem no tiene recursos aún, armarlos desde el análisis (IA).
         recursos = repositories.listar_recursos(it.id)
         if not recursos:
