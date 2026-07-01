@@ -5,6 +5,7 @@ del recurso del APU. Devuelve un factor de conversión multiplicativo.
 """
 from __future__ import annotations
 
+from config import settings
 from core.text_cleaner import normalizar
 
 # Alias de unidades -> unidad canónica
@@ -34,6 +35,10 @@ _CONVERSIONES = {
     # 1 jornal laboral = 8 horas (mano de obra y equipo se manejan en horas).
     ("jornal", "hora"): 8.0,
     ("hora", "jornal"): 1 / 8.0,
+    # 1 bolsa de cemento = N kg (Bolivia: 50 kg). Permite homologar precios de
+    # cemento entre bolsa y kg cuando el recurso se expresa en kg.
+    ("bolsa", "kg"): settings.KG_POR_BOLSA_CEMENTO,
+    ("kg", "bolsa"): 1.0 / settings.KG_POR_BOLSA_CEMENTO,
 }
 
 

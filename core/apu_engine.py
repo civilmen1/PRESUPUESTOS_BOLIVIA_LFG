@@ -12,6 +12,7 @@ from typing import List, Optional
 from config.logging_config import get_logger
 from core import data_loader, repositories
 from core.pricing_engine import cotizar_recurso
+from core.reglas_unidades import forzar_cemento_kg
 from core.sabs import calcular_desglose
 from core.text_cleaner import normalizar
 from models.apu_resource import (RecursoAPU, TIPO_EQUIPO, TIPO_MANO_OBRA,
@@ -182,6 +183,7 @@ def armar_recursos_desde_analisis(item: Item, persistir: bool = True
     # con un APU real del banco, se usa ese armado (rendimientos reales).
     recursos_banco = _recursos_desde_banco(item)
     if recursos_banco:
+        recursos_banco = forzar_cemento_kg(recursos_banco)  # cemento siempre en kg
         if persistir and item.id:
             repositories.borrar_recursos_item(item.id)
             for r in recursos_banco:
@@ -218,6 +220,7 @@ def armar_recursos_desde_analisis(item: Item, persistir: bool = True
         # Sin IA: plantillas + contexto (extractor offline por reglas)
         recursos = inferir_recursos(item, info.como_texto())
 
+    recursos = forzar_cemento_kg(recursos)  # cemento siempre en kg
     if persistir and item.id:
         repositories.borrar_recursos_item(item.id)
         for r in recursos:
@@ -345,6 +348,7 @@ def generar_apu_item(item: Item, proyecto: Proyecto, texto_extra: str = "",
                 logger.exception("No se pudo cargar la especificación del ítem %s",
                                  item.id)
         recursos = inferir_recursos(item, texto_extra)
+        recursos = forzar_cemento_kg(recursos)  # cemento siempre en kg
         if persistir:
             for r in recursos:
                 cat = getattr(r, "_categoria", "")
