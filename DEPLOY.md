@@ -76,15 +76,30 @@ montado en `/data` y define `APU_DB_PATH=/data/proveedores.db`.
 
 ---
 
-## IA (Ollama) en la nube
+## IA en la nube
 
-La IA local Ollama necesita bastante RAM/GPU. Opciones:
-- **No usar IA en la nube** (`USAR_LLM=false`): funciona el extractor offline
-  por reglas. Recomendado para empezar.
-- **Servidor con Ollama:** levanta un contenedor Ollama aparte y apunta
-  `OLLAMA_HOST` a él (requiere instancia con ≥8 GB RAM).
-- **LLM de pago por API** (OpenAI/Anthropic/Gemini): configura su API key; no
-  consume recursos del servidor.
+> **Arranque recomendado: modo offline (`USAR_LLM=false`).** Es gratis ($0),
+> no hace llamadas externas y la app funciona con el extractor por reglas. El
+> `render.yaml` ya viene así. Activa la IA cuando valides el tráfico real.
+
+Opciones de IA, de menor a mayor calidad/costo:
+
+- **Offline por reglas** (`USAR_LLM=false`): gratis, sin dependencias. Ideal
+  para lanzar. ⭐
+- **Groq** (`USAR_LLM=true` + `GROQ_API_KEY`): IA en línea **gratis** y rápida.
+  Buen escalón intermedio sin costo.
+- **GLM-5.2 / Z.AI** (`USAR_LLM=true` + `GLM_API_KEY`): **máxima calidad**,
+  ~$0.018 por APU. API compatible con OpenAI; no consume RAM del servidor.
+- **OpenAI / Gemini** (`USAR_LLM=true` + su API key): alternativas de pago.
+
+> ⚠️ **App pública:** con cualquier IA de pago, cada APU que genere un usuario
+> cuesta dinero. Antes de activar GLM en abierto, considera un límite de uso
+> (por sesión/día) para proteger la factura.
+
+### Cómo activar GLM-5.2 después de lanzar
+1. En Render → Environment, pega tu clave en `GLM_API_KEY`.
+2. Cambia `USAR_LLM` a `true`.
+3. Guarda y redeploy. El panel del asistente mostrará "GLM responde correctamente".
 
 ---
 
