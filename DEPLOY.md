@@ -59,6 +59,51 @@ montado en `/data` y define `APU_DB_PATH=/data/proveedores.db`.
 
 ---
 
+## Opción D — Streamlit Community Cloud (GRATIS) 🆓
+
+Hosting gratuito de Streamlit, directo desde GitHub. **No usa el Dockerfile**:
+instala `requirements.txt` (librerías Python) y `packages.txt` (Tesseract y
+Poppler para el OCR).
+
+1. Entra a <https://share.streamlit.io> e inicia sesión **con tu cuenta de GitHub**.
+2. **Create app** → *Deploy a public app from GitHub*:
+   - Repository: `civilmen1/PRESUPUESTOS_BOLIVIA_LFG`
+   - Branch: `main`
+   - Main file path: `app.py`
+   - App URL: elige el nombre (p. ej. `frava` → `frava.streamlit.app`)
+3. **Advanced settings** → Python version: **3.11**. En **Secrets** pega (ajusta
+   los valores):
+
+   ```toml
+   AUTH_SALT = "una-frase-secreta-larga-y-unica"
+   USAR_LLM = "true"
+   GROQ_API_KEY = "gsk_..."          # tu clave de https://console.groq.com
+   EMAIL_DRY_RUN = "true"
+   AUTH_EMAIL_DRY_RUN = "true"       # "false" + SMTP_* para enviar correos reales
+   SCRAPER_DRY_RUN = "true"
+   # SMTP_HOST = "smtp.gmail.com"
+   # SMTP_USER = "tu_correo@gmail.com"
+   # SMTP_PASSWORD = "contraseña-de-aplicacion"
+   ```
+
+   `app.py` copia estos Secrets a variables de entorno antes de cargar la
+   configuración, así que funcionan igual que en Render.
+4. **Deploy**. La primera instalación tarda unos minutos.
+
+**Limitaciones del plan gratis** (propias de la plataforma, no del código):
+
+- **Los datos NO son permanentes**: la base SQLite, los documentos subidos y
+  las exportaciones se **borran** cuando la app se reinicia o se redespliega.
+  Descarga tus exportaciones y respalda lo importante.
+- **Se duerme** tras varias horas sin visitas; al abrirla se despierta con un
+  botón (tarda ~1 min).
+- **No admite dominio propio** (`www.frava.tech`): queda en `*.streamlit.app`.
+- Recursos limitados (~1 GB de RAM): evita subir PDF escaneados muy grandes.
+
+Para datos permanentes y dominio propio usa la Opción A (Render) o B (VPS).
+
+---
+
 ## Variables de entorno importantes
 
 | Variable | Para qué | En producción |
