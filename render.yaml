@@ -44,10 +44,12 @@ services:
         value: "true"
       - key: SCRAPER_DRY_RUN
         value: "true"
-      # IA: por defecto usa LLM por API si configuras la key (recomendado Gemini
-      # o OpenAI en la nube; Ollama local no aplica en Render).
+      # IA: ARRANQUE SEGURO EN MODO OFFLINE (gratis, $0). El sistema usa el
+      # extractor por reglas (core/info_extractor.py); no hace llamadas de pago.
+      # Para activar la IA mas adelante: pon una API key abajo (GLM_API_KEY para
+      # maxima calidad, o GROQ_API_KEY gratis) y cambia este valor a "true".
       - key: USAR_LLM
-        value: "true"
+        value: "false"
       # Verificacion de SEPREC via API oficial (no requiere navegador).
       - key: SEPREC_USAR_NAVEGADOR
         value: "false"
@@ -64,8 +66,14 @@ services:
         sync: false
       - key: VERIFIK_TOKEN
         sync: false
-      # IA por API (configura una en el panel para extraer recursos con IA):
-      # Groq: IA en linea gratis y rapida (recomendada). Clave en console.groq.com
+      # IA por API (configura una en el panel para extraer recursos con IA).
+      # IMPORTANTE: ademas de pegar la key, hay que poner USAR_LLM=true arriba.
+      # GLM-5.2 (Z.AI): MAXIMA CALIDAD, ~$0.018 por APU. Clave en https://z.ai/
+      - key: GLM_API_KEY
+        sync: false
+      - key: GLM_MODEL
+        value: glm-5.2
+      # Groq: IA en linea gratis y rapida. Clave en console.groq.com
       - key: GROQ_API_KEY
         sync: false
       - key: OPENAI_API_KEY
