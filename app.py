@@ -9,15 +9,37 @@ Ejecutar con:  streamlit run app.py
 """
 from __future__ import annotations
 
+import os
+
 import streamlit as st
 
-from config import settings
-from config.logging_config import setup_logging
-from core.database import init_db
-from ui import (apu_page, aportar_page, asistente_page, auth_page, banco_page,
+
+def _secrets_a_entorno() -> None:
+    """Copia los Secrets de Streamlit Cloud a variables de entorno.
+
+    La configuración (config.settings) se lee con os.getenv. En Streamlit
+    Community Cloud las claves se cargan como "Secrets"; este puente las expone
+    como variables de entorno ANTES de importar la configuración. No pisa una
+    variable ya definida. Sin archivo de secretos (local, Docker, Render) no hace
+    nada.
+    """
+    try:
+        for clave, valor in st.secrets.items():
+            if isinstance(valor, (str, int, float, bool)) and clave not in os.environ:
+                os.environ[clave] = str(valor)
+    except Exception:
+        pass
+
+
+_secrets_a_entorno()
+
+from config import settings  # noqa: E402  (debe ir después del puente de secretos)
+from config.logging_config import setup_logging  # noqa: E402
+from core.database import init_db  # noqa: E402
+from ui import (apu_page, aportar_page, asistente_page, auth_page, banco_page,  # noqa: E402
                 dashboard, documents_page, export_page, items_page,
                 linking_page, provider_portal, quotations_page, suppliers_page)
-from ui.components import selector_proyecto
+from ui.components import selector_proyecto  # noqa: E402
 
 
 @st.cache_resource
